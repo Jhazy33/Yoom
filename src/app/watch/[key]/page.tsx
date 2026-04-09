@@ -20,7 +20,11 @@ export default async function WatchPage({ params }: WatchPageProps) {
   }
 
   const videoUrl = getPublicVideoUrl(key);
-  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL}/watch/${key}`;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    || (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
+    || (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`)
+    || "http://localhost:3000";
+  const shareUrl = `${baseUrl}/watch/${key}`;
 
   return (
     <main className="flex min-h-screen items-center justify-center p-8">

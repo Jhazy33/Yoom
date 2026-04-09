@@ -330,7 +330,7 @@ export function Recorder({ password }: RecorderProps) {
         xhr.send(blob);
       });
 
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+      const appUrl = window.location.origin;
       setShareUrl(`${appUrl}/watch/${key}`);
       setState("done");
     } catch {
