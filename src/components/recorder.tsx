@@ -71,57 +71,78 @@ export function Recorder({ password }: RecorderProps) {
 
     return new Promise<void>((resolve) => {
       let resolved = false;
+      let lastW = 0;
+      let lastH = 0;
+      let lastCamW = 0;
+      let lastCamH = 0;
+      // Pre-built paths for the camera overlay (rebuilt only when dimensions change)
+      let clipPath: Path2D | null = null;
+      let strokePath: Path2D | null = null;
+      let camX = 0;
+      let camY = 0;
+      let camWidth = 0;
+      let camHeight = 0;
+
+      function rebuildOverlay(w: number, h: number, cw: number, ch: number) {
+        camWidth = Math.round(w * 0.2);
+        camHeight = Math.round(camWidth * (ch / (cw || 1)));
+        const padding = 20;
+        camX = w - camWidth - padding;
+        camY = h - camHeight - padding;
+        const r = 12;
+
+        const p = new Path2D();
+        p.moveTo(camX + r, camY);
+        p.lineTo(camX + camWidth - r, camY);
+        p.quadraticCurveTo(camX + camWidth, camY, camX + camWidth, camY + r);
+        p.lineTo(camX + camWidth, camY + camHeight - r);
+        p.quadraticCurveTo(camX + camWidth, camY + camHeight, camX + camWidth - r, camY + camHeight);
+        p.lineTo(camX + r, camY + camHeight);
+        p.quadraticCurveTo(camX, camY + camHeight, camX, camY + camHeight - r);
+        p.lineTo(camX, camY + r);
+        p.quadraticCurveTo(camX, camY, camX + r, camY);
+        p.closePath();
+        clipPath = p;
+        strokePath = new Path2D(p);
+
+        lastW = w;
+        lastH = h;
+        lastCamW = cw;
+        lastCamH = ch;
+      }
 
       function draw() {
-        if (screenVideo.videoWidth > 0) {
-          canvas.width = screenVideo.videoWidth;
-          canvas.height = screenVideo.videoHeight;
+        const sw = screenVideo.videoWidth;
+        const sh = screenVideo.videoHeight;
+
+        if (sw > 0) {
+          // Only reset canvas dimensions when they actually change
+          if (canvas.width !== sw || canvas.height !== sh) {
+            canvas.width = sw;
+            canvas.height = sh;
+          }
+
+          // Rebuild overlay geometry only when dimensions change
+          const cw = cameraVideo.videoWidth;
+          const ch = cameraVideo.videoHeight;
+          if (sw !== lastW || sh !== lastH || cw !== lastCamW || ch !== lastCamH) {
+            rebuildOverlay(sw, sh, cw, ch);
+          }
 
           // Draw screen
-          ctx.drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
+          ctx.drawImage(screenVideo, 0, 0, sw, sh);
 
-          // Draw camera overlay (bottom-right, 20% of screen width)
-          const camWidth = Math.round(canvas.width * 0.2);
-          const camHeight = Math.round(
-            camWidth * (cameraVideo.videoHeight / (cameraVideo.videoWidth || 1))
-          );
-          const padding = 20;
-          const camX = canvas.width - camWidth - padding;
-          const camY = canvas.height - camHeight - padding;
+          // Draw camera overlay with pre-built clip path
+          if (clipPath && camWidth > 0 && camHeight > 0) {
+            ctx.save();
+            ctx.clip(clipPath);
+            ctx.drawImage(cameraVideo, camX, camY, camWidth, camHeight);
+            ctx.restore();
 
-          // Rounded rectangle clip for camera
-          const radius = 12;
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(camX + radius, camY);
-          ctx.lineTo(camX + camWidth - radius, camY);
-          ctx.quadraticCurveTo(camX + camWidth, camY, camX + camWidth, camY + radius);
-          ctx.lineTo(camX + camWidth, camY + camHeight - radius);
-          ctx.quadraticCurveTo(camX + camWidth, camY + camHeight, camX + camWidth - radius, camY + camHeight);
-          ctx.lineTo(camX + radius, camY + camHeight);
-          ctx.quadraticCurveTo(camX, camY + camHeight, camX, camY + camHeight - radius);
-          ctx.lineTo(camX, camY + radius);
-          ctx.quadraticCurveTo(camX, camY, camX + radius, camY);
-          ctx.closePath();
-          ctx.clip();
-          ctx.drawImage(cameraVideo, camX, camY, camWidth, camHeight);
-          ctx.restore();
-
-          // Border around camera
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(camX + radius, camY);
-          ctx.lineTo(camX + camWidth - radius, camY);
-          ctx.quadraticCurveTo(camX + camWidth, camY, camX + camWidth, camY + radius);
-          ctx.lineTo(camX + camWidth, camY + camHeight - radius);
-          ctx.quadraticCurveTo(camX + camWidth, camY + camHeight, camX + camWidth - radius, camY + camHeight);
-          ctx.lineTo(camX + radius, camY + camHeight);
-          ctx.quadraticCurveTo(camX, camY + camHeight, camX, camY + camHeight - radius);
-          ctx.lineTo(camX, camY + radius);
-          ctx.quadraticCurveTo(camX, camY, camX + radius, camY);
-          ctx.closePath();
-          ctx.stroke();
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+            ctx.lineWidth = 2;
+            ctx.stroke(strokePath!);
+          }
 
           if (!resolved) {
             resolved = true;
