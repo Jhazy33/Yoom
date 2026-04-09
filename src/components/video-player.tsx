@@ -1,13 +1,23 @@
 "use client";
 
+import { useState } from "react";
+
 interface VideoPlayerProps {
   src: string;
   shareUrl: string;
 }
 
 export function VideoPlayer({ src, shareUrl }: VideoPlayerProps) {
+  const [copied, setCopied] = useState(false);
+
   async function copyToClipboard() {
-    await navigator.clipboard.writeText(shareUrl);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for insecure contexts
+    }
   }
 
   return (
@@ -26,7 +36,7 @@ export function VideoPlayer({ src, shareUrl }: VideoPlayerProps) {
           onClick={copyToClipboard}
           className="shrink-0 rounded-lg border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-700 hover:text-neutral-100 transition-all"
         >
-          Copy link
+          {copied ? "Copied!" : "Copy link"}
         </button>
       </div>
     </div>

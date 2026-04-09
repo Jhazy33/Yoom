@@ -113,9 +113,10 @@ export function Recorder({ password }: RecorderProps) {
         recordStream = canvasStream;
       }
 
-      const mediaRecorder = new MediaRecorder(recordStream, {
-        mimeType: "video/webm;codecs=vp9",
-      });
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : "video/webm";
+      const mediaRecorder = new MediaRecorder(recordStream, { mimeType });
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -210,8 +211,16 @@ export function Recorder({ password }: RecorderProps) {
     return `${m}:${s}`;
   }
 
+  const [copied, setCopied] = useState(false);
+
   async function copyToClipboard() {
-    await navigator.clipboard.writeText(shareUrl);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for insecure contexts
+    }
   }
 
   // ----- RENDER -----
@@ -237,7 +246,7 @@ export function Recorder({ password }: RecorderProps) {
               onClick={copyToClipboard}
               className="shrink-0 rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-950 hover:bg-white transition-all"
             >
-              Copy
+              {copied ? "Copied!" : "Copy"}
             </button>
           </div>
           <button

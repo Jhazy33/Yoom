@@ -10,7 +10,7 @@ export default async function WatchPage({ params }: WatchPageProps) {
   const { key } = await params;
 
   // Validate key format (uuid.webm)
-  if (!/^[0-9a-f-]+\.webm$/.test(key)) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webm$/.test(key)) {
     notFound();
   }
 

@@ -30,8 +30,13 @@ export async function videoExists(key: string): Promise<boolean> {
       })
     );
     return true;
-  } catch {
-    return false;
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "NotFound") return false;
+    if (err instanceof Error && "$$metadata" in err) {
+      const meta = err as Error & { $$metadata: { httpStatusCode?: number } };
+      if (meta.$$metadata.httpStatusCode === 404) return false;
+    }
+    throw err;
   }
 }
 

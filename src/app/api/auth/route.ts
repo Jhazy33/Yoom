@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
+
+function passwordMatches(input: string, expected: string): boolean {
+  if (input.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(input), Buffer.from(expected));
+}
 
 export async function POST(request: NextRequest) {
-  const { password } = await request.json();
+  let body: { password?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 
-  if (!password || password !== process.env.UPLOAD_PASSWORD) {
+  const { password } = body;
+  const expected = process.env.UPLOAD_PASSWORD;
+
+  if (!password || !expected || !passwordMatches(password, expected)) {
     return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
 
