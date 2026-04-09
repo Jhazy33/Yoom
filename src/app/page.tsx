@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PasswordGate } from "@/components/password-gate";
+import { Recorder } from "@/components/recorder";
 
 export default function Home() {
   const [password, setPassword] = useState<string | null>(null);
@@ -10,9 +11,5 @@ export default function Home() {
     return <PasswordGate onAuthenticated={setPassword} />;
   }
 
-  return (
-    <main className="flex min-h-screen items-center justify-center">
-      <p className="text-neutral-400">Recorder goes here</p>
-    </main>
-  );
+  return <Recorder password={password} />;
 }
