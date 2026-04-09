@@ -1,7 +1,18 @@
+"use client";
+
+import { useState } from "react";
+import { PasswordGate } from "@/components/password-gate";
+
 export default function Home() {
+  const [password, setPassword] = useState<string | null>(null);
+
+  if (!password) {
+    return <PasswordGate onAuthenticated={setPassword} />;
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-semibold">Yoom</h1>
+      <p className="text-neutral-400">Recorder goes here</p>
     </main>
   );
 }
