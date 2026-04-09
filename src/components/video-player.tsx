@@ -16,15 +16,15 @@ export function VideoPlayer({ src, shareUrl }: VideoPlayerProps) {
         src={src}
         controls
         autoPlay
-        className="w-full rounded-xl border border-neutral-800"
+        className="w-full rounded-xl border border-neutral-800 shadow-lg shadow-black/30"
       />
       <div className="flex items-center gap-2">
-        <div className="flex-1 rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2">
-          <span className="text-sm text-neutral-400 truncate block">{shareUrl}</span>
+        <div className="flex-1 rounded-lg border border-neutral-800 bg-neutral-900/80 px-3 py-2">
+          <span className="text-sm text-neutral-500 truncate block">{shareUrl}</span>
         </div>
         <button
           onClick={copyToClipboard}
-          className="shrink-0 rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors"
+          className="shrink-0 rounded-lg border border-neutral-700 bg-neutral-800 px-4 py-2 text-sm font-medium text-neutral-300 hover:bg-neutral-700 hover:text-neutral-100 transition-all"
         >
           Copy link
         </button>

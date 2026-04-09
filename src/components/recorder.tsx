@@ -220,26 +220,29 @@ export function Recorder({ password }: RecorderProps) {
     return (
       <main className="flex min-h-screen items-center justify-center p-8">
         <div className="w-full max-w-md space-y-6 text-center">
-          <div className="rounded-full w-12 h-12 bg-green-500/10 text-green-400 flex items-center justify-center mx-auto text-xl">
-            ✓
+          <div className="rounded-full w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
-          <h2 className="text-xl font-semibold">Recording uploaded</h2>
-          <div className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900 p-3">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold text-neutral-100">Recording uploaded</h2>
+            <p className="text-sm text-neutral-500">Share the link below</p>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/80 p-2.5">
             <input
               readOnly
               value={shareUrl}
-              className="flex-1 bg-transparent text-sm text-neutral-300 outline-none truncate"
+              className="flex-1 bg-transparent text-sm text-neutral-400 outline-none truncate"
             />
             <button
               onClick={copyToClipboard}
-              className="shrink-0 rounded-md bg-white px-3 py-1.5 text-xs font-medium text-neutral-950 hover:bg-neutral-200 transition-colors"
+              className="shrink-0 rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-950 hover:bg-white transition-all"
             >
               Copy
             </button>
           </div>
           <button
             onClick={reset}
-            className="text-sm text-neutral-400 hover:text-neutral-200 transition-colors"
+            className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
           >
             Record another
           </button>
@@ -251,15 +254,15 @@ export function Recorder({ password }: RecorderProps) {
   if (state === "uploading") {
     return (
       <main className="flex min-h-screen items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-4 text-center">
-          <h2 className="text-xl font-semibold">Uploading...</h2>
-          <div className="w-full rounded-full bg-neutral-800 h-2">
+        <div className="w-full max-w-md space-y-5 text-center">
+          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Uploading</p>
+          <div className="w-full rounded-full bg-neutral-800/60 h-1.5 overflow-hidden">
             <div
-              className="h-2 rounded-full bg-white transition-all duration-300"
+              className="h-1.5 rounded-full bg-neutral-100 progress-bar transition-all duration-500 ease-out"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-sm text-neutral-400">{uploadProgress}%</p>
+          <p className="text-sm font-mono text-neutral-400 tabular-nums">{uploadProgress}%</p>
         </div>
       </main>
     );
@@ -287,10 +290,10 @@ export function Recorder({ password }: RecorderProps) {
           <>
             {/* Mode selector */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-neutral-400 uppercase tracking-wide">
+              <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
                 Mode
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-1 rounded-lg border border-neutral-800 bg-neutral-900/60 p-1">
                 {([
                   { value: "screen", label: "Screen" },
                   { value: "camera", label: "Camera" },
@@ -299,10 +302,10 @@ export function Recorder({ password }: RecorderProps) {
                   <button
                     key={opt.value}
                     onClick={() => setMode(opt.value)}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
                       mode === opt.value
-                        ? "border-white bg-white text-neutral-950"
-                        : "border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-600"
+                        ? "bg-neutral-100 text-neutral-950 shadow-sm"
+                        : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"
                     }`}
                   >
                     {opt.label}
@@ -331,7 +334,7 @@ export function Recorder({ password }: RecorderProps) {
 
         {/* Error */}
         {error && (
-          <p className="text-sm text-red-400 text-center">{error}</p>
+          <p className="text-sm text-red-400/90 text-center">{error}</p>
         )}
 
         {/* Controls */}
@@ -339,7 +342,7 @@ export function Recorder({ password }: RecorderProps) {
           {state === "idle" && (
             <button
               onClick={startRecording}
-              className="rounded-lg bg-red-500 px-6 py-2.5 text-sm font-medium text-white hover:bg-red-600 transition-colors"
+              className="rounded-lg bg-red-500 px-8 py-2.5 text-sm font-semibold text-white hover:bg-red-400 shadow-lg shadow-red-500/20 hover:shadow-red-400/30 transition-all"
             >
               Start Recording
             </button>
@@ -347,13 +350,13 @@ export function Recorder({ password }: RecorderProps) {
 
           {state === "recording" && (
             <>
-              <span className="flex items-center gap-2 text-sm text-neutral-300">
+              <span className="flex items-center gap-2 text-sm font-mono text-neutral-400 tabular-nums">
                 <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
                 {formatTime(elapsed)}
               </span>
               <button
                 onClick={stopRecording}
-                className="rounded-lg border border-neutral-600 px-6 py-2.5 text-sm font-medium text-neutral-100 hover:bg-neutral-800 transition-colors"
+                className="rounded-lg border border-neutral-700 bg-neutral-800 px-6 py-2.5 text-sm font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition-all"
               >
                 Stop
               </button>

@@ -108,7 +108,7 @@ export function RecordingPreview({
   }, [mode, screenStream, cameraStream, canvasRef]);
 
   return (
-    <div className="relative w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-neutral-900 border border-neutral-800">
+    <div className="relative w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-neutral-900/60 border border-neutral-800 shadow-lg shadow-black/20">
       {/* Screen-only preview */}
       {mode === "screen" && (
         <video

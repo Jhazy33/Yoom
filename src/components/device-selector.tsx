@@ -38,13 +38,13 @@ export function DeviceSelector({ kind, label, value, onChange }: DeviceSelectorP
 
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-neutral-400 uppercase tracking-wide">
+      <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
         {label}
       </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-600 transition-colors appearance-none cursor-pointer"
+        className="device-select w-full rounded-lg border border-neutral-800 bg-neutral-900/80 px-3 py-2 text-sm text-neutral-300 outline-none focus:border-neutral-600 focus:ring-1 focus:ring-neutral-700 transition-all appearance-none cursor-pointer"
       >
         {devices.map((device) => (
           <option key={device.deviceId} value={device.deviceId}>
