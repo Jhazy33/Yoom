@@ -27,6 +27,9 @@ export function Recorder({ password }: RecorderProps) {
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationRef = useRef<number>(0);
+  const screenVideoElRef = useRef<HTMLVideoElement | null>(null);
+  const cameraVideoElRef = useRef<HTMLVideoElement | null>(null);
 
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -39,7 +42,99 @@ export function Recorder({ password }: RecorderProps) {
     setScreenStream(null);
     setCameraStream(null);
     if (timerRef.current) clearInterval(timerRef.current);
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    animationRef.current = 0;
+    screenVideoElRef.current = null;
+    cameraVideoElRef.current = null;
   }, []);
+
+  function startCanvasCompositing(
+    canvas: HTMLCanvasElement,
+    screen: MediaStream,
+    camera: MediaStream,
+  ): Promise<void> {
+    const screenVideo = document.createElement("video");
+    screenVideo.srcObject = screen;
+    screenVideo.muted = true;
+    screenVideo.playsInline = true;
+    screenVideo.play();
+    screenVideoElRef.current = screenVideo;
+
+    const cameraVideo = document.createElement("video");
+    cameraVideo.srcObject = camera;
+    cameraVideo.muted = true;
+    cameraVideo.playsInline = true;
+    cameraVideo.play();
+    cameraVideoElRef.current = cameraVideo;
+
+    const ctx = canvas.getContext("2d")!;
+
+    return new Promise<void>((resolve) => {
+      let resolved = false;
+
+      function draw() {
+        if (screenVideo.videoWidth > 0) {
+          canvas.width = screenVideo.videoWidth;
+          canvas.height = screenVideo.videoHeight;
+
+          // Draw screen
+          ctx.drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
+
+          // Draw camera overlay (bottom-right, 20% of screen width)
+          const camWidth = Math.round(canvas.width * 0.2);
+          const camHeight = Math.round(
+            camWidth * (cameraVideo.videoHeight / (cameraVideo.videoWidth || 1))
+          );
+          const padding = 20;
+          const camX = canvas.width - camWidth - padding;
+          const camY = canvas.height - camHeight - padding;
+
+          // Rounded rectangle clip for camera
+          const radius = 12;
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(camX + radius, camY);
+          ctx.lineTo(camX + camWidth - radius, camY);
+          ctx.quadraticCurveTo(camX + camWidth, camY, camX + camWidth, camY + radius);
+          ctx.lineTo(camX + camWidth, camY + camHeight - radius);
+          ctx.quadraticCurveTo(camX + camWidth, camY + camHeight, camX + camWidth - radius, camY + camHeight);
+          ctx.lineTo(camX + radius, camY + camHeight);
+          ctx.quadraticCurveTo(camX, camY + camHeight, camX, camY + camHeight - radius);
+          ctx.lineTo(camX, camY + radius);
+          ctx.quadraticCurveTo(camX, camY, camX + radius, camY);
+          ctx.closePath();
+          ctx.clip();
+          ctx.drawImage(cameraVideo, camX, camY, camWidth, camHeight);
+          ctx.restore();
+
+          // Border around camera
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(camX + radius, camY);
+          ctx.lineTo(camX + camWidth - radius, camY);
+          ctx.quadraticCurveTo(camX + camWidth, camY, camX + camWidth, camY + radius);
+          ctx.lineTo(camX + camWidth, camY + camHeight - radius);
+          ctx.quadraticCurveTo(camX + camWidth, camY + camHeight, camX + camWidth - radius, camY + camHeight);
+          ctx.lineTo(camX + radius, camY + camHeight);
+          ctx.quadraticCurveTo(camX, camY + camHeight, camX, camY + camHeight - radius);
+          ctx.lineTo(camX, camY + radius);
+          ctx.quadraticCurveTo(camX, camY, camX + radius, camY);
+          ctx.closePath();
+          ctx.stroke();
+
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
+        }
+
+        animationRef.current = requestAnimationFrame(draw);
+      }
+
+      draw();
+    });
+  }
 
   async function startRecording() {
     setError("");
@@ -94,10 +189,10 @@ export function Recorder({ password }: RecorderProps) {
           ]);
         }
       } else {
-        // screen+camera — composite via canvas
+        // screen+camera — composite via canvas imperatively
         const canvas = canvasRef.current!;
-        // Wait a tick for canvas to start drawing
-        await new Promise((r) => setTimeout(r, 200));
+        // Start draw loop and wait for first real frame before capturing
+        await startCanvasCompositing(canvas, screenStreamRef.current!, cameraStreamRef.current!);
         const canvasStream = canvas.captureStream(30);
 
         // Add mic audio
@@ -310,13 +405,12 @@ export function Recorder({ password }: RecorderProps) {
         />
       )}
 
-      {/* Preview (for screen-only and camera-only modes) */}
-      {state === "recording" && (
+      {/* Preview (for screen-only and camera-only modes — screen+camera uses the canvas above) */}
+      {state === "recording" && mode !== "screen+camera" && (
         <RecordingPreview
           mode={mode}
           screenStream={screenStream}
           cameraStream={cameraStream}
-          canvasRef={canvasRef}
         />
       )}
 
