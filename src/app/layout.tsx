@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
 
 export const metadata: Metadata = {
   title: "Yoom",
@@ -16,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-neutral-950 text-neutral-100 min-h-screen antialiased selection:bg-neutral-700 selection:text-white`}>
+      <body className={`${jakarta.className} bg-background text-foreground min-h-screen antialiased selection:bg-accent/20 selection:text-foreground`}>
         {children}
       </body>
     </html>

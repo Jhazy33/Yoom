@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { DeviceSelector } from "./device-selector";
 import { RecordingPreview } from "./recording-preview";
+import { YoomLogo } from "./logo";
 
 type RecordingMode = "screen" | "camera" | "screen+camera";
 type RecorderState = "idle" | "recording" | "uploading" | "done";
@@ -75,7 +76,6 @@ export function Recorder({ password }: RecorderProps) {
       let lastH = 0;
       let lastCamW = 0;
       let lastCamH = 0;
-      // Pre-built paths for the camera overlay (rebuilt only when dimensions change)
       let clipPath: Path2D | null = null;
       let strokePath: Path2D | null = null;
       let camX = 0;
@@ -116,23 +116,19 @@ export function Recorder({ password }: RecorderProps) {
         const sh = screenVideo.videoHeight;
 
         if (sw > 0) {
-          // Only reset canvas dimensions when they actually change
           if (canvas.width !== sw || canvas.height !== sh) {
             canvas.width = sw;
             canvas.height = sh;
           }
 
-          // Rebuild overlay geometry only when dimensions change
           const cw = cameraVideo.videoWidth;
           const ch = cameraVideo.videoHeight;
           if (sw !== lastW || sh !== lastH || cw !== lastCamW || ch !== lastCamH) {
             rebuildOverlay(sw, sh, cw, ch);
           }
 
-          // Draw screen
           ctx.drawImage(screenVideo, 0, 0, sw, sh);
 
-          // Draw camera overlay with pre-built clip path
           if (clipPath && camWidth > 0 && camHeight > 0) {
             ctx.save();
             ctx.clip(clipPath);
@@ -166,21 +162,32 @@ export function Recorder({ password }: RecorderProps) {
 
       if (mode === "screen" || mode === "screen+camera") {
         const screen = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
+          video: {
+            frameRate: { ideal: 60 },
+            width: { ideal: 3840 },
+            height: { ideal: 2160 },
+          },
           audio: true,
         });
         screenStreamRef.current = screen;
         setScreenStream(screen);
 
-        // Stop recording if user ends screen share via browser UI
         screen.getVideoTracks()[0].addEventListener("ended", () => {
           stopRecording();
         });
       }
 
       if (mode === "camera" || mode === "screen+camera") {
+        const cameraConstraints: MediaTrackConstraints = {
+          frameRate: { ideal: 60, min: 30 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        };
+        if (cameraId) {
+          cameraConstraints.deviceId = { exact: cameraId };
+        }
         const camera = await navigator.mediaDevices.getUserMedia({
-          video: cameraId ? { deviceId: { exact: cameraId } } : true,
+          video: cameraConstraints,
           audio: mode === "camera" ? (micId ? { deviceId: { exact: micId } } : true) : false,
         });
         cameraStreamRef.current = camera;
@@ -188,7 +195,6 @@ export function Recorder({ password }: RecorderProps) {
       }
 
       if (mode === "screen") {
-        // Use screen stream, add mic audio if selected
         recordStream = screenStreamRef.current!;
         if (micId) {
           const micStream = await navigator.mediaDevices.getUserMedia({
@@ -199,7 +205,6 @@ export function Recorder({ password }: RecorderProps) {
       } else if (mode === "camera") {
         recordStream = cameraStreamRef.current!;
         if (micId) {
-          // Replace audio track with selected mic
           const micStream = await navigator.mediaDevices.getUserMedia({
             audio: { deviceId: { exact: micId } },
           });
@@ -210,13 +215,10 @@ export function Recorder({ password }: RecorderProps) {
           ]);
         }
       } else {
-        // screen+camera — composite via canvas imperatively
         const canvas = canvasRef.current!;
-        // Start draw loop and wait for first real frame before capturing
         await startCanvasCompositing(canvas, screenStreamRef.current!, cameraStreamRef.current!);
-        const canvasStream = canvas.captureStream(30);
+        const canvasStream = canvas.captureStream(60);
 
-        // Add mic audio
         if (micId) {
           const micStream = await navigator.mediaDevices.getUserMedia({
             audio: { deviceId: { exact: micId } },
@@ -229,15 +231,22 @@ export function Recorder({ password }: RecorderProps) {
         recordStream = canvasStream;
       }
 
-      // Let the browser choose the best codec — specifying vp9 can fail silently on macOS
       const codecs = [
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=vp9",
         "video/webm;codecs=vp8,opus",
         "video/webm;codecs=vp8",
         "video/webm",
         "",
       ];
       const mimeType = codecs.find((c) => c === "" || MediaRecorder.isTypeSupported(c)) || "";
-      const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
+
+      const videoBitsPerSecond = mode === "camera" ? 5_000_000 : 10_000_000;
+
+      const recorderOptions: MediaRecorderOptions = {
+        ...(mimeType ? { mimeType } : {}),
+        videoBitsPerSecond,
+      };
       const mediaRecorder = new MediaRecorder(recordStream, recorderOptions);
 
       mediaRecorder.ondataavailable = (e) => {
@@ -255,11 +264,10 @@ export function Recorder({ password }: RecorderProps) {
       };
 
       console.log(`[Yoom] starting MediaRecorder with mimeType: "${mediaRecorder.mimeType}", stream tracks:`, recordStream.getTracks().map(t => `${t.kind}:${t.readyState}`));
-      mediaRecorder.start(1000); // collect chunks every second
+      mediaRecorder.start(250);
       mediaRecorderRef.current = mediaRecorder;
       setState("recording");
 
-      // Start timer
       setElapsed(0);
       timerRef.current = setInterval(() => {
         setElapsed((prev) => prev + 1);
@@ -294,7 +302,6 @@ export function Recorder({ password }: RecorderProps) {
     }
 
     try {
-      // Get presigned URL
       const res = await fetch("/api/upload", {
         method: "POST",
         headers: { "x-upload-password": password },
@@ -304,7 +311,6 @@ export function Recorder({ password }: RecorderProps) {
 
       const { presignedUrl, key } = await res.json();
 
-      // Upload to R2
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", presignedUrl);
       xhr.setRequestHeader("Content-Type", "video/webm");
@@ -370,25 +376,25 @@ export function Recorder({ password }: RecorderProps) {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-neutral-100">Recording uploaded</h2>
-            <p className="text-sm text-neutral-500">Share the link below</p>
+            <h2 className="text-lg font-semibold text-foreground">Recording uploaded</h2>
+            <p className="text-sm text-muted">Share the link below</p>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-900/80 p-2.5">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface p-2.5">
             <input
               readOnly
               value={shareUrl}
-              className="flex-1 bg-transparent text-sm text-neutral-400 outline-none truncate"
+              className="flex-1 bg-transparent text-sm text-muted outline-none truncate"
             />
             <button
               onClick={copyToClipboard}
-              className="shrink-0 rounded-md bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-950 hover:bg-white transition-all"
+              className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover transition-all"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
           <button
             onClick={reset}
-            className="text-sm text-neutral-500 hover:text-neutral-300 transition-colors"
+            className="text-sm text-muted hover:text-foreground transition-colors"
           >
             Record another
           </button>
@@ -401,14 +407,14 @@ export function Recorder({ password }: RecorderProps) {
     return (
       <main className="flex min-h-screen items-center justify-center p-8">
         <div className="w-full max-w-md space-y-5 text-center">
-          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Uploading</p>
-          <div className="w-full rounded-full bg-neutral-800/60 h-1.5 overflow-hidden">
+          <p className="text-xs font-medium text-muted-dim uppercase tracking-wider">Uploading</p>
+          <div className="w-full rounded-full bg-surface h-1.5 overflow-hidden">
             <div
-              className="h-1.5 rounded-full bg-neutral-100 progress-bar transition-all duration-500 ease-out"
+              className="h-1.5 rounded-full bg-accent progress-bar transition-all duration-500 ease-out"
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-sm font-mono text-neutral-400 tabular-nums">{uploadProgress}%</p>
+          <p className="text-sm font-mono text-muted tabular-nums">{uploadProgress}%</p>
         </div>
       </main>
     );
@@ -416,17 +422,17 @@ export function Recorder({ password }: RecorderProps) {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-      {/* Canvas for screen+camera compositing - always mounted to keep captureStream stable */}
+      {/* Canvas for screen+camera compositing */}
       {mode === "screen+camera" && (
         <canvas
           ref={canvasRef}
           className={state === "recording"
-            ? "w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-neutral-900/60 border border-neutral-800 shadow-lg shadow-black/20"
+            ? "w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-surface border border-border shadow-lg shadow-black/30"
             : "hidden"}
         />
       )}
 
-      {/* Preview (for screen-only and camera-only modes — screen+camera uses the canvas above) */}
+      {/* Preview (for screen-only and camera-only modes) */}
       {state === "recording" && mode !== "screen+camera" && (
         <RecordingPreview
           mode={mode}
@@ -438,12 +444,17 @@ export function Recorder({ password }: RecorderProps) {
       <div className="w-full max-w-md space-y-6">
         {state === "idle" && (
           <>
+            {/* Brand */}
+            <div className="flex justify-center">
+              <YoomLogo size="sm" />
+            </div>
+
             {/* Mode selector */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider">
+              <label className="text-xs font-medium text-muted-dim uppercase tracking-wider">
                 Mode
               </label>
-              <div className="grid grid-cols-3 gap-1 rounded-lg border border-neutral-800 bg-neutral-900/60 p-1">
+              <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-surface p-1">
                 {([
                   { value: "screen", label: "Screen" },
                   { value: "camera", label: "Camera" },
@@ -454,8 +465,8 @@ export function Recorder({ password }: RecorderProps) {
                     onClick={() => setMode(opt.value)}
                     className={`rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
                       mode === opt.value
-                        ? "bg-neutral-100 text-neutral-950 shadow-sm"
-                        : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800"
+                        ? "bg-accent text-white shadow-sm"
+                        : "text-muted hover:text-foreground hover:bg-surface-raised"
                     }`}
                   >
                     {opt.label}
@@ -492,7 +503,7 @@ export function Recorder({ password }: RecorderProps) {
           {state === "idle" && (
             <button
               onClick={startRecording}
-              className="rounded-lg bg-red-500 px-8 py-2.5 text-sm font-semibold text-white hover:bg-red-400 shadow-lg shadow-red-500/20 hover:shadow-red-400/30 transition-all"
+              className="rounded-lg bg-accent px-8 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover shadow-lg shadow-accent/20 hover:shadow-accent/30 transition-all"
             >
               Start Recording
             </button>
@@ -500,13 +511,13 @@ export function Recorder({ password }: RecorderProps) {
 
           {state === "recording" && (
             <>
-              <span className="flex items-center gap-2 text-sm font-mono text-neutral-400 tabular-nums">
-                <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="flex items-center gap-2 text-sm font-mono text-muted tabular-nums">
+                <span className="h-2 w-2 rounded-full bg-accent recording-dot" />
                 {formatTime(elapsed)}
               </span>
               <button
                 onClick={stopRecording}
-                className="rounded-lg border border-neutral-700 bg-neutral-800 px-6 py-2.5 text-sm font-medium text-neutral-200 hover:bg-neutral-700 hover:text-white transition-all"
+                className="rounded-lg border border-border bg-surface-raised px-6 py-2.5 text-sm font-medium text-foreground hover:bg-surface-raised hover:brightness-110 transition-all"
               >
                 Stop
               </button>
