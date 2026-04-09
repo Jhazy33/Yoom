@@ -132,12 +132,11 @@ export function RecordingPreview({
         />
       )}
 
-      {/* Screen + Camera: show canvas, hide source videos */}
+      {/* Screen + Camera: hidden video sources for compositing (canvas is owned by Recorder) */}
       {mode === "screen+camera" && (
         <>
           <video ref={screenVideoRef} autoPlay muted playsInline className="hidden" />
           <video ref={cameraVideoRef} autoPlay muted playsInline className="hidden" />
-          <canvas ref={canvasRef} className="w-full h-full object-contain" />
         </>
       )}
     </div>

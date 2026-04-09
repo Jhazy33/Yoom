@@ -113,17 +113,32 @@ export function Recorder({ password }: RecorderProps) {
         recordStream = canvasStream;
       }
 
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : "video/webm";
-      const mediaRecorder = new MediaRecorder(recordStream, { mimeType });
+      // Let the browser choose the best codec — specifying vp9 can fail silently on macOS
+      const codecs = [
+        "video/webm;codecs=vp8,opus",
+        "video/webm;codecs=vp8",
+        "video/webm",
+        "",
+      ];
+      const mimeType = codecs.find((c) => c === "" || MediaRecorder.isTypeSupported(c)) || "";
+      const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(recordStream, recorderOptions);
 
       mediaRecorder.ondataavailable = (e) => {
+        console.log(`[Yoom] chunk received: ${e.data.size} bytes`);
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
-      mediaRecorder.onstop = () => handleRecordingComplete();
+      mediaRecorder.onerror = (e) => {
+        console.error("[Yoom] MediaRecorder error:", e);
+      };
 
+      mediaRecorder.onstop = () => {
+        console.log(`[Yoom] recording stopped, ${chunksRef.current.length} chunks, total ${chunksRef.current.reduce((a, b) => a + b.size, 0)} bytes`);
+        handleRecordingComplete();
+      };
+
+      console.log(`[Yoom] starting MediaRecorder with mimeType: "${mediaRecorder.mimeType}", stream tracks:`, recordStream.getTracks().map(t => `${t.kind}:${t.readyState}`));
       mediaRecorder.start(1000); // collect chunks every second
       mediaRecorderRef.current = mediaRecorder;
       setState("recording");
@@ -155,6 +170,12 @@ export function Recorder({ password }: RecorderProps) {
     stopAllStreams();
 
     const blob = new Blob(chunksRef.current, { type: "video/webm" });
+
+    if (blob.size === 0) {
+      setError("Recording captured no data. Please try again.");
+      setState("idle");
+      return;
+    }
 
     try {
       // Get presigned URL
@@ -279,7 +300,17 @@ export function Recorder({ password }: RecorderProps) {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-      {/* Preview */}
+      {/* Canvas for screen+camera compositing - always mounted to keep captureStream stable */}
+      {mode === "screen+camera" && (
+        <canvas
+          ref={canvasRef}
+          className={state === "recording"
+            ? "w-full max-w-2xl aspect-video rounded-xl overflow-hidden bg-neutral-900/60 border border-neutral-800 shadow-lg shadow-black/20"
+            : "hidden"}
+        />
+      )}
+
+      {/* Preview (for screen-only and camera-only modes) */}
       {state === "recording" && (
         <RecordingPreview
           mode={mode}
@@ -287,11 +318,6 @@ export function Recorder({ password }: RecorderProps) {
           cameraStream={cameraStream}
           canvasRef={canvasRef}
         />
-      )}
-
-      {/* Hidden canvas for compositing (needed before recording starts too) */}
-      {mode === "screen+camera" && state !== "recording" && (
-        <canvas ref={canvasRef} className="hidden" />
       )}
 
       <div className="w-full max-w-md space-y-6">
