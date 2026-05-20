@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { videoExists, getPublicVideoUrl } from "@/lib/r2";
+import { videoExists, getPublicVideoUrl, getPublicTranscriptUrl } from "@/lib/r2";
 import { VideoPlayer } from "@/components/video-player";
 
 interface WatchPageProps {
@@ -9,26 +9,26 @@ interface WatchPageProps {
 export default async function WatchPage({ params }: WatchPageProps) {
   const { key } = await params;
 
-  // Validate key format (uuid.webm)
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webm$/.test(key)) {
-    notFound();
-  }
-
-  const exists = await videoExists(key);
+  // Validate key format (should be just UUID for our new structure)
+  const videoId = key.replace('.webm', '');
+  
+  const exists = await videoExists(videoId);
   if (!exists) {
     notFound();
   }
 
-  const videoUrl = getPublicVideoUrl(key);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    || (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
-    || (process.env.VERCEL_URL && `https://${process.env.VERCEL_URL}`)
-    || "http://localhost:3000";
+  const videoUrl = getPublicVideoUrl(videoId);
+  const transcriptUrl = getPublicTranscriptUrl(videoId);
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const shareUrl = `${baseUrl}/watch/${key}`;
 
   return (
     <main className="flex min-h-screen items-center justify-center p-8">
-      <VideoPlayer src={videoUrl} shareUrl={shareUrl} />
+      <VideoPlayer 
+        src={videoUrl} 
+        transcriptUrl={transcriptUrl}
+        shareUrl={shareUrl} 
+      />
     </main>
   );
 }

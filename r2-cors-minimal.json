@@ -1,0 +1,7 @@
+[
+  {
+    "allowed_origins": ["*"],
+    "allowed_methods": ["PUT"],
+    "allowed_headers": ["*"]
+  }
+]

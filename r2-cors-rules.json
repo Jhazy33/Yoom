@@ -1,0 +1,10 @@
+{
+  "rules": [
+    {
+      "allowed_origins": ["https://yoom.cihconsultingllc.com", "http://localhost:3000"],
+      "allowed_methods": ["GET", "HEAD", "POST", "PUT", "DELETE"],
+      "allowed_headers": ["*"],
+      "max_age_seconds": 86400
+    }
+  ]
+}

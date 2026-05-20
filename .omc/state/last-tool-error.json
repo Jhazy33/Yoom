@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"vercel switch\",\"description\":\"Switch to correct team/scope\"}",
+  "error": "Exit code 1\n{\n  \"status\": \"action_required\",\n  \"reason\": \"missing_arguments\",\n  \"action\": \"missing_arguments\",\n  \"message\": \"In non-interactive mode a team slug (or username for personal scope) is required. Run: vercel teams switch <slug>\",\n  \"next\": [\n    {\n      \"command\": \"vercel teams switch <slug>\",\n      \"when\": \"to switch scope (replace <slug> with team slug)\"\n    },\n    {\n      \"command\": \"vercel teams list\",\n      \"when\": \"to list teams and slugs\"\n    }\n  ],\n  \"hint\": \"Run one of the co...",
+  "timestamp": "2026-05-20T03:37:24.090Z",
+  "retry_count": 3
+}

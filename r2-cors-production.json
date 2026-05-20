@@ -1,0 +1,23 @@
+[
+  {
+    "allowed_origins": [
+      "https://yoom.cihconsultingllc.com",
+      "http://localhost:3000",
+      "http://localhost:3001"
+    ],
+    "allowed_methods": ["PUT", "GET", "HEAD", "OPTIONS"],
+    "allowed_headers": [
+      "Content-Type",
+      "X-Amz-Content-Sha256",
+      "X-Amz-Date",
+      "X-Amz-Algorithm",
+      "X-Amz-Credential",
+      "X-Amz-Expires",
+      "X-Amz-Signature",
+      "X-Amz-SignedHeaders",
+      "Authorization"
+    ],
+    "max_age_seconds": 86400,
+    "expose_headers": ["ETag", "Content-Length", "Content-Type"]
+  }
+]
