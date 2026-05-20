@@ -1,0 +1,13 @@
+{
+  "users": [
+    {
+      "id": "1",
+      "username": "jhazy33",
+      "email": "admin@yoom.com",
+      "passwordHash": "$2a$12$NaUpregu5nkktlett14og.vkl/DCrkV0d.FUZmWZtbmFM9sIMQY/i",
+      "role": "admin",
+      "allowedFolders": ["*"],
+      "createdAt": "2024-05-20T00:00:00Z"
+    }
+  ]
+}
