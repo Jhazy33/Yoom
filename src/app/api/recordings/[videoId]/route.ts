@@ -7,6 +7,7 @@ import {
   createPresignedUploadUrl,
   saveMetadata,
   getVideoMetadata,
+  VideoMetadata,
 } from "@/lib/r2";
 
 // DELETE /api/recordings/[videoId] - Delete a recording
@@ -79,7 +80,7 @@ export async function POST(
         ...metadata,
         retryCount: (statusInfo.retryCount || 0) + 1,
         lastRetry: new Date().toISOString(),
-      } as any);
+      } as VideoMetadata & { retryCount?: number; lastRetry?: string });
     }
 
     return NextResponse.json({

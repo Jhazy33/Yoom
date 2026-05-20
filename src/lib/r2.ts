@@ -52,7 +52,7 @@ export async function uploadVideo(videoId: string, videoBlob: Blob, metadata: Vi
   return videoKey;
 }
 
-export async function saveTranscript(videoId: string, transcription: any) {
+export async function saveTranscript(videoId: string, transcription: Record<string, unknown>) {
   const transcriptKey = `yoom-videos/${videoId}/transcript.json`;
   
   const command = new PutObjectCommand({

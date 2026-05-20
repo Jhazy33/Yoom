@@ -10,6 +10,6 @@ export default withAuth({
 });
 
 export const config = {
-  // Protect these routes
-  matcher: ["/watch/:path*", "/api/upload", "/api/upload-complete/:path*", "/recorder"],
+  // Protect these routes (NOTE: /watch/[key] is public for shared links)
+  matcher: ["/api/upload", "/api/upload-complete/:path*", "/recorder"],
 };

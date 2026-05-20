@@ -50,22 +50,22 @@ export async function POST(request: NextRequest) {
       })),
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("R2 test failed:", error);
 
     let errorMessage = "Failed to connect to R2";
     let details = "";
 
-    if (error.name === "NoSuchBucket") {
+    if (error instanceof Error && error.name === "NoSuchBucket") {
       errorMessage = "Bucket not found";
       details = `Bucket "${process.env.R2_BUCKET_NAME}" does not exist or you don't have access`;
-    } else if (error.name === "Forbidden" || error.$metadata?.httpStatusCode === 403) {
+    } else if (error instanceof Error && (error.name === "Forbidden" || ("$metadata" in error && (error as Error & { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 403))) {
       errorMessage = "Access denied";
       details = "Check your R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY";
-    } else if (error.name === "NoSuchBucket" || error.$metadata?.httpStatusCode === 404) {
+    } else if (error instanceof Error && (error.name === "NoSuchBucket" || ("$metadata" in error && (error as Error & { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode === 404))) {
       errorMessage = "Bucket not found";
       details = "Verify R2_BUCKET_NAME environment variable";
-    } else if (error.message) {
+    } else if (error instanceof Error && error.message) {
       details = error.message;
     }
 

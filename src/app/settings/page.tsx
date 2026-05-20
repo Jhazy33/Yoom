@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { Sidebar, HamburgerButton } from "@/components/sidebar";
 
@@ -28,8 +29,10 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [passwordHash, setPasswordHash] = useState("");
-  const [instructions, setInstructions] = useState<string[]>([]);
-  const [storageStats, setStorageStats] = useState<any>(null);
+  const [storageStats, setStorageStats] = useState<{
+    count: number;
+    totalSize: number;
+  } | null>(null);
 
   // Recordings state
   const [recordings, setRecordings] = useState<RecordingMetadata[]>([]);
@@ -42,9 +45,52 @@ export default function SettingsPage() {
     folderPath: "yoom-videos",
     folderPrefix: "",
   });
-  const [r2TestResult, setR2TestResult] = useState<any>(null);
+  const [r2TestResult, setR2TestResult] = useState<{
+    success: boolean;
+    bucket: string;
+    fullPrefix: string;
+    storage: {
+      objectCount: number;
+      totalSizeMB: number;
+    };
+  } | null>(null);
   const [testingR2, setTestingR2] = useState(false);
   const [r2Error, setR2Error] = useState("");
+
+  // Load recordings on mount
+  useEffect(() => {
+    const loadRecordings = async () => {
+      try {
+        setRecordingsLoading(true);
+        setRecordingsError("");
+        const res = await fetch("/api/recordings");
+        if (!res.ok) throw new Error("Failed to fetch recordings");
+        const json = await res.json();
+        setRecordings(json.recordings || []);
+      } catch (err) {
+        setRecordingsError("Failed to load recordings");
+        console.error("Error loading recordings:", err);
+      } finally {
+        setRecordingsLoading(false);
+      }
+    };
+
+    loadRecordings();
+  }, []);
+
+  // Load storage stats on mount
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const { getStorageStats } = await import("@/lib/storage");
+        const stats = await getStorageStats();
+        setStorageStats(stats);
+      } catch (err) {
+        console.error("Failed to load storage stats:", err);
+      }
+    };
+    loadStats();
+  }, []);
 
   if (status === "loading") {
     return (
@@ -100,17 +146,16 @@ export default function SettingsPage() {
       setNewPassword("");
       setConfirmPassword("");
 
-      // Store the new hash and instructions for display
+      // Store the new hash for display
       if (data.newHash) {
         setPasswordHash(data.newHash);
-        setInstructions(data.instructions);
       }
 
       // Sign out after 10 seconds to give user time to copy the hash
       setTimeout(() => {
         signOut({ callbackUrl: "/login" });
       }, 10000);
-    } catch (err) {
+    } catch {
       setError("Failed to change password. Please try again.");
       setLoading(false);
     }
@@ -119,27 +164,6 @@ export default function SettingsPage() {
   const handleSignOut = async () => {
     await signOut({ callbackUrl: "/login" });
   };
-
-  // Load recordings on mount
-  useEffect(() => {
-    const loadRecordings = async () => {
-      try {
-        setRecordingsLoading(true);
-        setRecordingsError("");
-        const res = await fetch("/api/recordings");
-        if (!res.ok) throw new Error("Failed to fetch recordings");
-        const json = await res.json();
-        setRecordings(json.recordings || []);
-      } catch (err) {
-        setRecordingsError("Failed to load recordings");
-        console.error("Error loading recordings:", err);
-      } finally {
-        setRecordingsLoading(false);
-      }
-    };
-
-    loadRecordings();
-  }, []);
 
   // Handle recording deletion
   const handleDeleteRecording = async (videoId: string) => {
@@ -240,20 +264,6 @@ export default function SettingsPage() {
     }
   };
 
-  // Load storage stats on mount
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const { getStorageStats } = await import("@/lib/storage");
-        const stats = await getStorageStats();
-        setStorageStats(stats);
-      } catch (err) {
-        console.error("Failed to load storage stats:", err);
-      }
-    };
-    loadStats();
-  }, []);
-
   const validateFolderName = (name: string): boolean => {
     return /^[a-zA-Z0-9-_]+$/.test(name);
   };
@@ -299,7 +309,7 @@ export default function SettingsPage() {
       }
 
       setR2TestResult(data);
-    } catch (err) {
+    } catch {
       setR2Error("Failed to test R2 connection. Please try again.");
     } finally {
       setTestingR2(false);
@@ -470,7 +480,7 @@ export default function SettingsPage() {
                 placeholder="e.g., user-videos or archive"
               />
               <p className="text-xs text-muted mt-1">
-                Additional nesting level (e.g., "yoom-videos/[prefix]/video-id/")
+                Additional nesting level (e.g., &quot;yoom-videos/[prefix]/video-id/&quot;)
               </p>
             </div>
 
@@ -540,7 +550,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="bg-surface border border-border rounded-lg p-6">
+        <div id="recordings" className="bg-surface border border-border rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">My Recordings</h2>
 
           {recordingsLoading ? (
@@ -642,9 +652,9 @@ export default function SettingsPage() {
         </div>
 
         <div className="text-center">
-          <a href="/" className="text-accent hover:underline text-sm">
+          <Link href="/" className="text-accent hover:underline text-sm">
             ← Back to Home
-          </a>
+          </Link>
         </div>
       </div>
       </main>

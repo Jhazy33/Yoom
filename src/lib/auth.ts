@@ -3,12 +3,15 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { compare } from "bcryptjs";
 
 // Admin credentials from environment variables
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "$2b$12$sRUKf9t9lxZlqIXdlcdg/OubTj1nmy3Q9mpIcATVdqMr/TIFLLMd."; // "password123"
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 
-// Warn in development if using defaults
-if (process.env.NODE_ENV === "development" && !process.env.ADMIN_USERNAME) {
-  console.warn("⚠️  Using default credentials. Set ADMIN_USERNAME and ADMIN_PASSWORD_HASH environment variables for production.");
+// Fail fast if credentials are not configured
+if (!ADMIN_USERNAME || !ADMIN_PASSWORD_HASH) {
+  throw new Error(
+    "ADMIN_USERNAME and ADMIN_PASSWORD_HASH must be set in environment variables. " +
+    "See .env.example for required configuration."
+  );
 }
 
 export const authOptions: NextAuthOptions = {
