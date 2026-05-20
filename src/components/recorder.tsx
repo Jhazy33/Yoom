@@ -1,26 +1,28 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { DeviceSelector } from "./device-selector";
 import { RecordingPreview } from "./recording-preview";
 import { YoomLogo } from "./logo";
+import { Sidebar, HamburgerButton } from "./sidebar";
+import { saveRecording, updateRecordingStatus } from "@/lib/storage";
+import { addToQueue, getQueueStatus, startQueueProcessor } from "@/lib/uploadQueue";
 
 type RecordingMode = "screen" | "camera" | "screen+camera";
 type RecorderState = "idle" | "recording" | "uploading" | "done";
 
-interface RecorderProps {
-  password: string;
-}
-
-export function Recorder({ password }: RecorderProps) {
+export function Recorder() {
   const [mode, setMode] = useState<RecordingMode>("screen");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [micId, setMicId] = useState("");
   const [cameraId, setCameraId] = useState("");
   const [state, setState] = useState<RecorderState>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [shareUrl, setShareUrl] = useState("");
+  const [localVideoUrl, setLocalVideoUrl] = useState("");
   const [error, setError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [queueSize, setQueueSize] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -34,6 +36,22 @@ export function Recorder({ password }: RecorderProps) {
 
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+
+  // Monitor upload queue status
+  useEffect(() => {
+    const updateQueueStatus = () => {
+      const status = getQueueStatus();
+      setQueueSize(status.size);
+    };
+
+    updateQueueStatus();
+    const interval = setInterval(updateQueueStatus, 2000);
+
+    // Start queue processor on mount
+    startQueueProcessor();
+
+    return () => clearInterval(interval);
+  }, []);
 
   const stopAllStreams = useCallback(() => {
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -301,47 +319,139 @@ export function Recorder({ password }: RecorderProps) {
       return;
     }
 
+    // Generate unique video ID
+    const videoId = `recording-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "x-upload-password": password },
+      // Step 1: Save to IndexedDB first (data persistence)
+      console.log(`[Yoom] Saving recording ${videoId} to IndexedDB...`);
+      await saveRecording(videoId, blob, {
+        title: `Recording ${new Date().toLocaleString()}`,
+        createdAt: new Date().toISOString(),
+        size: blob.size,
+        duration: elapsed,
+        status: 'pending',
+        uploadAttempts: 0,
       });
+      console.log(`[Yoom] Recording saved to IndexedDB`);
 
-      if (!res.ok) throw new Error("Failed to get upload URL");
+      // Step 2: Update status to uploading
+      await updateRecordingStatus(videoId, 'uploading');
 
-      const { presignedUrl, key } = await res.json();
+      // Step 3: Upload to R2 via server proxy (bypasses CORS)
+      console.log(`[Yoom] Uploading via server proxy (${blob.size} bytes)...`);
 
-      const xhr = new XMLHttpRequest();
-      xhr.open("PUT", presignedUrl);
-      xhr.setRequestHeader("Content-Type", "video/webm");
+      // Use XMLHttpRequest for progress tracking with FormData
+      const uploadKey = await new Promise<string>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/upload-proxy");
 
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          setUploadProgress(Math.round((e.loaded / e.total) * 100));
-        }
-      };
+        const formData = new FormData();
+        formData.append("file", blob, "video.webm");
+        formData.append("videoId", videoId);
 
-      await new Promise<void>((resolve, reject) => {
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error(`Upload failed: ${xhr.status}`));
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
         };
-        xhr.onerror = () => reject(new Error("Upload failed"));
-        xhr.send(blob);
+
+        xhr.onload = async () => {
+          console.log(`[Yoom] Upload proxy status: ${xhr.status}`);
+
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              console.log(`[Yoom] Upload successful, key: ${data.key}`);
+              resolve(data.key);
+            } catch (e) {
+              reject(new Error("Invalid response from upload proxy"));
+            }
+          } else {
+            reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(new Error("Network error during server upload"));
+        };
+
+        xhr.ontimeout = () => {
+          reject(new Error("Upload timed out"));
+        };
+
+        xhr.timeout = 300000; // 5 minute timeout for server upload
+
+        console.log(`[Yoom] Starting server upload...`);
+        xhr.send(formData);
       });
 
+      // Step 4: Update status to completed
+      await updateRecordingStatus(videoId, 'completed', {
+        r2Key: uploadKey,
+        uploadAttempts: 1,
+      });
+
+      console.log(`[Yoom] Recording ${videoId} completed successfully`);
+
+      // Step 5: Show success UI with local and remote options
       const appUrl = window.location.origin;
-      setShareUrl(`${appUrl}/watch/${key}`);
+      setShareUrl(`${appUrl}/watch/${videoId}`);
+      setLocalVideoUrl(URL.createObjectURL(blob)); // Enable immediate local playback
       setState("done");
-    } catch {
-      setError("Upload failed. Please try again.");
+
+    } catch (err) {
+      // Handle upload failure with detailed error messages
+      console.error(`[Yoom] Upload failed for ${videoId}:`, err);
+
+      let errorMessage = "Upload failed. Please try again.";
+
+      if (err instanceof Error) {
+        console.error(`[Yoom] Error details:`, {
+          message: err.message,
+          stack: err.stack,
+          name: err.name
+        });
+
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          errorMessage = "Network error - check your internet connection and try again.";
+        } else if (err.message.includes('timeout')) {
+          errorMessage = "Upload timed out. Your recording has been saved and will retry automatically.";
+        } else if (err.message.includes('403') || err.message.includes('Forbidden')) {
+          errorMessage = "Permission denied. There may be a storage configuration issue.";
+        } else if (err.message.includes('Failed to get upload URL')) {
+          errorMessage = "Server error. Your recording has been saved and will retry automatically.";
+        } else {
+          // Include the actual error message for debugging
+          errorMessage = `Upload failed: ${err.message}`;
+        }
+      } else {
+        console.error(`[Yoom] Unknown error type:`, typeof err, err);
+      }
+
+      // Update status to failed and add to retry queue
+      await updateRecordingStatus(videoId, 'failed', {
+        errorMessage: err instanceof Error ? err.message : String(errorMessage),
+        lastUploadAttempt: new Date().toISOString(),
+      });
+
+      // Add to retry queue
+      await addToQueue(videoId, 0);
+      console.log(`[Yoom] Added ${videoId} to retry queue`);
+
+      setError(errorMessage);
       setState("idle");
     }
   }
 
   function reset() {
+    // Clean up blob URL to prevent memory leaks
+    if (localVideoUrl) {
+      URL.revokeObjectURL(localVideoUrl);
+    }
     setState("idle");
     setShareUrl("");
+    setLocalVideoUrl("");
     setElapsed(0);
     setUploadProgress(0);
     setError("");
@@ -370,43 +480,73 @@ export function Recorder({ password }: RecorderProps) {
 
   if (state === "done") {
     return (
-      <main className="flex min-h-screen items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-6 text-center">
+      <>
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <main className="flex min-h-screen items-center justify-center p-8">
+          {/* Header with hamburger menu */}
+          <div className="absolute top-4 left-4 z-30">
+            <HamburgerButton onClick={() => setSidebarOpen(true)} />
+          </div>
+
+          <div className="w-full max-w-md space-y-6 text-center">
           <div className="rounded-full w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-foreground">Recording uploaded</h2>
-            <p className="text-sm text-muted">Share the link below</p>
+            <h2 className="text-lg font-semibold text-foreground">Recording ready!</h2>
+            <p className="text-sm text-muted">Watch locally or share the link</p>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-surface p-2.5">
-            <input
-              readOnly
-              value={shareUrl}
-              className="flex-1 bg-transparent text-sm text-muted outline-none truncate"
-            />
+
+          {/* Local video player */}
+          {localVideoUrl && (
+            <div className="rounded-lg border border-border bg-surface overflow-hidden">
+              <video
+                src={localVideoUrl}
+                controls
+                className="w-full max-h-64 bg-black"
+                autoPlay
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface p-2.5">
+              <input
+                readOnly
+                value={shareUrl}
+                className="flex-1 bg-transparent text-sm text-muted outline-none truncate"
+              />
+              <button
+                onClick={copyToClipboard}
+                className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover transition-all"
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
             <button
-              onClick={copyToClipboard}
-              className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-hover transition-all"
+              onClick={reset}
+              className="text-sm text-muted hover:text-foreground transition-colors"
             >
-              {copied ? "Copied!" : "Copy"}
+              Record another
             </button>
           </div>
-          <button
-            onClick={reset}
-            className="text-sm text-muted hover:text-foreground transition-colors"
-          >
-            Record another
-          </button>
         </div>
-      </main>
+        </main>
+      </>
     );
   }
 
   if (state === "uploading") {
     return (
-      <main className="flex min-h-screen items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-5 text-center">
+      <>
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <main className="flex min-h-screen items-center justify-center p-8">
+          {/* Header with hamburger menu */}
+          <div className="absolute top-4 left-4 z-30">
+            <HamburgerButton onClick={() => setSidebarOpen(true)} />
+          </div>
+
+          <div className="w-full max-w-md space-y-5 text-center">
           <p className="text-xs font-medium text-muted-dim uppercase tracking-wider">Uploading</p>
           <div className="w-full rounded-full bg-surface h-1.5 overflow-hidden">
             <div
@@ -416,13 +556,21 @@ export function Recorder({ password }: RecorderProps) {
           </div>
           <p className="text-sm font-mono text-muted tabular-nums">{uploadProgress}%</p>
         </div>
-      </main>
+        </main>
+      </>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-      {/* Canvas for screen+camera compositing */}
+    <>
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
+        {/* Header with hamburger menu */}
+        <div className="absolute top-4 left-4 z-30">
+          <HamburgerButton onClick={() => setSidebarOpen(true)} />
+        </div>
+
+        {/* Canvas for screen+camera compositing */}
       {mode === "screen+camera" && (
         <canvas
           ref={canvasRef}
@@ -448,6 +596,16 @@ export function Recorder({ password }: RecorderProps) {
             <div className="flex justify-center">
               <YoomLogo size="sm" />
             </div>
+
+            {/* Upload Queue Status */}
+            {queueSize > 0 && (
+              <div className="flex items-center justify-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                <span className="text-xs font-medium text-amber-400">
+                  {queueSize} upload{queueSize > 1 ? 's' : ''} in queue
+                </span>
+              </div>
+            )}
 
             {/* Mode selector */}
             <div className="space-y-1.5">
@@ -525,6 +683,7 @@ export function Recorder({ password }: RecorderProps) {
           )}
         </div>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
