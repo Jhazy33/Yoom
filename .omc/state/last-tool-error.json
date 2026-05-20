@@ -1,7 +1,7 @@
 {
   "tool_name": "mcp__plugin_chrome-devtools-mcp_chrome-devtools__fill_form",
-  "tool_input_preview": "{\"elements\":[{\"uid\":\"1_4\",\"value\":\"jhazy33\"},{\"uid\":\"1_6\",\"value\":\"Yoom2026!\"}]}",
-  "error": "Error: No snapshot found for page 1. Use take_snapshot to capture one.",
-  "timestamp": "2026-05-20T05:42:32.531Z",
+  "tool_input_preview": "{\"elements\":[{\"uid\":\"7_4\",\"value\":\"jhazy33\"},{\"uid\":\"7_6\",\"value\":\"Yoom2026!\"}]}",
+  "error": "Error: Element with uid 7_4 no longer exists on the page.",
+  "timestamp": "2026-05-20T06:10:49.067Z",
   "retry_count": 1
 }
