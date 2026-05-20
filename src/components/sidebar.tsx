@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { YoomLogo } from "./logo";
 
 interface SidebarProps {
@@ -13,6 +14,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   // Close sidebar on Escape key
   useEffect(() => {
@@ -31,8 +33,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     onClose();
   }, [pathname, onClose]);
 
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: "/login" });
+  };
+
   const navItems = [
     { href: "/", label: "Home", icon: "🏠" },
+    { href: "/recorder", label: "Start Recording", icon: "⏺️" },
+    { href: "/recordings", label: "Manage Recordings", icon: "📁" },
     { href: "/settings", label: "Settings", icon: "⚙️" },
   ];
 
@@ -92,8 +100,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-border">
-            <div className="px-4 py-2 text-xs text-muted-dim">
+          <div className="p-4 border-t border-border space-y-2">
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg
+                text-foreground font-medium transition-all
+                hover:bg-surface-raised hover:text-red-500
+                active:scale-[0.98]"
+            >
+              <span className="text-xl">🚪</span>
+              <span>Sign Out</span>
+            </button>
+            <div className="px-4 py-2 text-xs text-muted-dim text-center">
               Yoom v1.0
             </div>
           </div>

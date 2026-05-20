@@ -93,7 +93,7 @@ export default function HomePage() {
             Start Recording
           </a>
           <a
-            href="/settings#recordings"
+            href="/recordings"
             className="px-6 py-2 bg-surface border border-border rounded-lg hover:bg-surface-hover transition-colors"
           >
             Manage Recordings
