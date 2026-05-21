@@ -584,70 +584,53 @@ export default function SettingsPage() {
               <p className="text-sm text-muted mt-2">Your recordings will appear here once you upload them.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 font-medium text-foreground">Title</th>
-                    <th className="text-left py-3 px-4 font-medium text-foreground">Date</th>
-                    <th className="text-left py-3 px-4 font-medium text-foreground">Size</th>
-                    <th className="text-left py-3 px-4 font-medium text-foreground">Status</th>
-                    <th className="text-right py-3 px-4 font-medium text-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recordings.map((recording) => (
-                    <tr key={recording.videoId} className="border-b border-border hover:bg-surface-hover">
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-foreground truncate max-w-[200px]">
-                          {recording.title}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-muted">
-                        {formatDate(recording.createdAt)}
-                      </td>
-                      <td className="py-3 px-4 text-muted">
-                        {formatSize(recording.size)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(recording.status)}`}>
+            <div className="space-y-3">
+              {recordings.map((recording) => (
+                <div key={recording.videoId} className="bg-surface-hover border border-border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-foreground truncate mb-2">
+                        {recording.title}
+                      </h3>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                        <span>{formatDate(recording.createdAt)}</span>
+                        <span>{formatSize(recording.size)}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeColor(recording.status)}`}>
                           {recording.status}
                         </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center justify-end gap-2">
-                          {recording.status === 'completed' && recording.r2Key && (
-                            <button
-                              onClick={() => handleDownloadRecording(recording)}
-                              className="px-3 py-1 bg-accent text-white rounded hover:bg-accent-hover transition-colors text-xs"
-                              title="Download"
-                            >
-                              Download
-                            </button>
-                          )}
-                          {recording.status === 'failed' && (
-                            <button
-                              onClick={() => handleRetryRecording(recording.videoId)}
-                              disabled={retryingVideoId === recording.videoId}
-                              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
-                              title="Retry upload"
-                            >
-                              Retry
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteRecording(recording.videoId)}
-                            className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-xs"
-                            title="Delete"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {recording.status === 'completed' && recording.r2Key && (
+                        <button
+                          onClick={() => handleDownloadRecording(recording)}
+                          className="px-3 py-1.5 bg-accent text-white rounded hover:bg-accent-hover transition-colors text-xs"
+                          title="Download"
+                        >
+                          Download
+                        </button>
+                      )}
+                      {recording.status === 'failed' && (
+                        <button
+                          onClick={() => handleRetryRecording(recording.videoId)}
+                          disabled={retryingVideoId === recording.videoId}
+                          className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
+                          title="Retry upload"
+                        >
+                          {retryingVideoId === recording.videoId ? 'Retrying...' : 'Retry'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteRecording(recording.videoId)}
+                        className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-xs"
+                        title="Delete"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
