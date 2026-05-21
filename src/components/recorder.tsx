@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { DeviceSelector } from "./device-selector";
 import { RecordingPreview } from "./recording-preview";
 import { YoomLogo } from "./logo";
-import { Sidebar, HamburgerButton } from "./sidebar";
+// import { Sidebar, HamburgerButton } from "./sidebar";
 import { saveRecording, updateRecordingStatus } from "@/lib/storage";
 import { addToQueue, getQueueStatus, startQueueProcessor } from "@/lib/uploadQueue";
 
@@ -13,7 +13,6 @@ type RecorderState = "idle" | "recording" | "uploading" | "done";
 
 export function Recorder() {
   const [mode, setMode] = useState<RecordingMode>("screen");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [micId, setMicId] = useState("");
   const [cameraId, setCameraId] = useState("");
   const [state, setState] = useState<RecorderState>("idle");
@@ -481,11 +480,10 @@ export function Recorder() {
   if (state === "done") {
     return (
       <>
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className="flex min-h-screen items-center justify-center p-8">
           {/* Header with hamburger menu */}
           <div className="absolute top-4 left-4 z-30">
-            <HamburgerButton onClick={() => setSidebarOpen(true)} />
+            <{/* Hamburger removed - navigation handled by page layout */} />
           </div>
 
           <div className="w-full max-w-md space-y-6 text-center">
@@ -539,11 +537,10 @@ export function Recorder() {
   if (state === "uploading") {
     return (
       <>
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <main className="flex min-h-screen items-center justify-center p-8">
           {/* Header with hamburger menu */}
           <div className="absolute top-4 left-4 z-30">
-            <HamburgerButton onClick={() => setSidebarOpen(true)} />
+            <{/* Hamburger removed - navigation handled by page layout */} />
           </div>
 
           <div className="w-full max-w-md space-y-5 text-center">
@@ -563,11 +560,10 @@ export function Recorder() {
 
   return (
     <>
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
         {/* Header with hamburger menu */}
         <div className="absolute top-4 left-4 z-30">
-          <HamburgerButton onClick={() => setSidebarOpen(true)} />
+          <{/* Hamburger removed - navigation handled by page layout */} />
         </div>
 
         {/* Canvas for screen+camera compositing */}
