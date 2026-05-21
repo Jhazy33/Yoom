@@ -19,6 +19,7 @@ interface RecordingMetadata {
   hasVideo?: boolean;
   hasMetadata?: boolean;
   r2Key?: string;
+  errorMessage?: string;
 }
 
 export default function SettingsPage() {
@@ -42,6 +43,8 @@ export default function SettingsPage() {
   const [recordingsLoading, setRecordingsLoading] = useState(true);
   const [recordingsError, setRecordingsError] = useState("");
   const [retryingVideoId, setRetryingVideoId] = useState<string | null>(null);
+  const [selectedRecordings, setSelectedRecordings] = useState<Set<string>>(new Set());
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
 
   // R2 Configuration state
   const [r2Config, setR2Config] = useState({
@@ -183,6 +186,41 @@ export default function SettingsPage() {
     } catch (err) {
       alert("Failed to delete recording");
       console.error("Error deleting recording:", err);
+    }
+  };
+
+  // Toggle selection for bulk delete
+  const toggleSelection = (videoId: string) => {
+    const newSelection = new Set(selectedRecordings);
+    if (newSelection.has(videoId)) {
+      newSelection.delete(videoId);
+    } else {
+      newSelection.add(videoId);
+    }
+    setSelectedRecordings(newSelection);
+  };
+
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedRecordings.size === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ${selectedRecordings.size} recording${selectedRecordings.size > 1 ? 's' : ''}?`)) {
+      return;
+    }
+
+    try {
+      const { deleteRecording } = await import("@/lib/storage");
+
+      for (const videoId of selectedRecordings) {
+        await deleteRecording(videoId);
+      }
+
+      setRecordings(recordings.filter(r => !selectedRecordings.has(r.videoId)));
+      setSelectedRecordings(new Set());
+      setIsDeleteMode(false);
+    } catch (err) {
+      alert("Failed to delete some recordings");
+      console.error("Error deleting recordings:", err);
     }
   };
 
@@ -567,7 +605,42 @@ export default function SettingsPage() {
         </div>
 
         <div id="recordings" className="bg-surface border border-border rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">My Recordings</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">My Recordings</h2>
+            <div className="flex items-center gap-2">
+              {recordings.length > 0 && (
+                <>
+                  {isDeleteMode ? (
+                    <>
+                      <button
+                        onClick={handleBulkDelete}
+                        disabled={selectedRecordings.size === 0}
+                        className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
+                      >
+                        Delete Selected ({selectedRecordings.size})
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsDeleteMode(false);
+                          setSelectedRecordings(new Set());
+                        }}
+                        className="px-3 py-1.5 bg-surface border border-border rounded hover:bg-surface-hover transition-colors text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setIsDeleteMode(true)}
+                      className="px-3 py-1.5 bg-surface border border-border rounded hover:bg-surface-hover transition-colors text-xs"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
 
           {recordingsLoading ? (
             <div className="text-center py-8">
@@ -586,18 +659,33 @@ export default function SettingsPage() {
           ) : (
             <div className="space-y-3">
               {recordings.map((recording) => (
-                <div key={recording.videoId} className="bg-surface-hover border border-border rounded-lg p-4 space-y-3">
+                <div key={recording.videoId} className={`bg-surface-hover border rounded-lg p-4 space-y-3 transition-colors ${isDeleteMode && selectedRecordings.has(recording.videoId) ? 'border-accent bg-accent/5' : 'border-border'}`}>
                   <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-foreground truncate mb-2">
-                        {recording.title}
-                      </h3>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-                        <span>{formatDate(recording.createdAt)}</span>
-                        <span>{formatSize(recording.size)}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeColor(recording.status)}`}>
-                          {recording.status}
-                        </span>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      {isDeleteMode && (
+                        <input
+                          type="checkbox"
+                          checked={selectedRecordings.has(recording.videoId)}
+                          onChange={() => toggleSelection(recording.videoId)}
+                          className="mt-1 w-4 h-4 rounded border-border text-accent focus:ring-accent"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-foreground truncate mb-2">
+                          {recording.title}
+                        </h3>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                          <span>{formatDate(recording.createdAt)}</span>
+                          <span>{formatSize(recording.size)}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeColor(recording.status)}`}>
+                            {recording.status}
+                          </span>
+                          {recording.errorMessage && (
+                            <span className="text-red-500 text-xs" title={recording.errorMessage}>
+                              Upload failed
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -610,7 +698,7 @@ export default function SettingsPage() {
                           Download
                         </button>
                       )}
-                      {recording.status === 'failed' && (
+                      {(recording.status === 'failed' || recording.status === 'pending') && (
                         <button
                           onClick={() => handleRetryRecording(recording.videoId)}
                           disabled={retryingVideoId === recording.videoId}
@@ -620,13 +708,15 @@ export default function SettingsPage() {
                           {retryingVideoId === recording.videoId ? 'Retrying...' : 'Retry'}
                         </button>
                       )}
-                      <button
-                        onClick={() => handleDeleteRecording(recording.videoId)}
-                        className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-xs"
-                        title="Delete"
-                      >
-                        Delete
-                      </button>
+                      {!isDeleteMode && (
+                        <button
+                          onClick={() => handleDeleteRecording(recording.videoId)}
+                          className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-xs"
+                          title="Delete"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
