@@ -3,14 +3,12 @@
 import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { Recorder } from "@/components/recorder";
-import { Sidebar, HamburgerButton } from "@/components/sidebar";
 import { BackButton } from "@/components/back-button";
 import { useState } from "react";
 
 export default function RecorderPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (loading) {
     return (
@@ -28,22 +26,13 @@ export default function RecorderPage() {
   }
 
   return (
-    <>
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="min-h-screen">
-        {/* Header with back button */}
-        <div className="absolute top-4 left-4 z-30">
-          <BackButton />
-        </div>
-
-        {/* Hamburger menu on right */}
-        <div className="absolute top-4 right-4 z-30">
-          <HamburgerButton onClick={() => setSidebarOpen(true)} />
-        </div>
-
-        <Recorder />
+    <div className="min-h-screen">
+      {/* Back button only */}
+      <div className="absolute top-4 left-4 z-30">
+        <BackButton />
       </div>
-    </>
+
+      <Recorder />
+    </div>
   );
 }
