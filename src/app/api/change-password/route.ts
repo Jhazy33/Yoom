@@ -1,46 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { compare, hash } from "bcryptjs";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { verifyToken } from "@/lib/jwt";
+import { getUserById, updateUser } from "@/lib/users";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const token = req.cookies.get('auth_token')?.value;
 
-    if (!session) {
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await verifyToken(token);
+
+    if (!payload) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { currentPassword, newPassword } = await req.json();
 
-    // Verify current password
-    const currentHash = process.env.ADMIN_PASSWORD_HASH;
-    if (!currentHash) {
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    // Get user
+    const user = await getUserById(payload.userId);
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const isValid = await compare(currentPassword, currentHash);
+    // Verify current password
+    const isValid = await compare(currentPassword, user.passwordHash);
     if (!isValid) {
       return NextResponse.json({ error: "Current password is incorrect" }, { status: 400 });
     }
 
-    // Generate new hash
-    const newHash = await hash(newPassword, 12);
-
-    // Store new password hash in database or file storage
-    // For now, we'll update the environment variable and require manual deployment
-    // In production, you'd use Vercel's Environment API or a database
+    // Update password
+    await updateUser(user.id, { password: newPassword });
 
     return NextResponse.json({
       success: true,
-      message: "Password hash generated. Please update ADMIN_PASSWORD_HASH in Vercel dashboard.",
-      newHash: newHash,
-      instructions: [
-        "1. Go to Vercel Dashboard > Project > Settings > Environment Variables",
-        "2. Find ADMIN_PASSWORD_HASH and update its value to:",
-        newHash,
-        "3. Click Save and then redeploy your application"
-      ]
+      message: "Password updated successfully"
     });
   } catch (error) {
     console.error("Password change error:", error);

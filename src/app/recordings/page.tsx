@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useAuth } from "@/components/auth-provider";
 import { Sidebar, HamburgerButton } from "@/components/sidebar";
+import { BackButton } from "@/components/back-button";
+import { HomeIconButton } from "@/components/home-icon-button";
 
 interface RecordingMetadata {
   videoId: string;
@@ -18,14 +20,16 @@ interface RecordingMetadata {
 }
 
 export default function RecordingsPage() {
-  const { data: session, status } = useSession();
+  const { user, loading, logout } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [recordings, setRecordings] = useState<RecordingMetadata[]>([]);
   const [recordingsLoading, setRecordingsLoading] = useState(true);
   const [recordingsError, setRecordingsError] = useState("");
+
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/login" });
+    await logout();
+    router.push("/login");
   };
 
   const handleDeleteRecording = async (videoId: string) => {
@@ -60,16 +64,16 @@ export default function RecordingsPage() {
   };
 
   useEffect(() => {
-    if (session) {
+    if (user) {
       loadRecordings();
 
       // Auto-refresh recordings every 10 seconds
       const interval = setInterval(loadRecordings, 10000);
       return () => clearInterval(interval);
     }
-  }, [session]);
+  }, [user]);
 
-  if (status === "loading") {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="text-center">
@@ -79,7 +83,7 @@ export default function RecordingsPage() {
     );
   }
 
-  if (!session) {
+  if (!user) {
     router.push("/login");
     return null;
   }
@@ -90,7 +94,11 @@ export default function RecordingsPage() {
 
       <main className="flex min-h-screen flex-col items-center justify-center p-8">
         <div className="absolute top-4 left-4 z-30">
-          <HamburgerButton onClick={() => setSidebarOpen(true)} />
+          <BackButton />
+        </div>
+
+        <div className="absolute top-4 right-4 z-30">
+          <HomeIconButton />
         </div>
 
         <div className="w-full max-w-6xl space-y-6">

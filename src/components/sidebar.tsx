@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useAuth } from "./auth-provider";
 import { YoomLogo } from "./logo";
 
 interface SidebarProps {
@@ -14,7 +14,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { logout } = useAuth();
 
   // Close sidebar on Escape key
   useEffect(() => {
@@ -31,10 +31,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   // Close sidebar when route changes
   useEffect(() => {
     onClose();
-  }, [pathname, onClose]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/login" });
+    await logout();
+    window.location.href = "/login";
   };
 
   const navItems = [

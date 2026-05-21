@@ -1,15 +1,28 @@
-import { withAuth } from "next-auth/middleware";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { verifyToken } from './lib/jwt';
 
-export default withAuth({
-  // Protected routes
-  callbacks: {
-    authorized({ token }) {
-      return !!token;
-    },
-  },
-});
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get('auth_token')?.value;
+
+  const protectedPaths = ['/api/upload', '/recorder'];
+  const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path));
+
+  if (isProtectedPath) {
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    const payload = await verifyToken(token);
+
+    if (!payload) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
-  // Protect these routes (NOTE: /watch/[key] is public for shared links)
-  matcher: ["/api/upload", "/api/upload-complete/:path*", "/recorder"],
+  matcher: ['/api/upload/:path*', '/recorder/:path*'],
 };

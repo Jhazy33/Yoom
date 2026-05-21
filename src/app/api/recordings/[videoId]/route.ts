@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { verifyToken } from "@/lib/jwt";
+import { getUserById } from "@/lib/users";
 import {
   deleteVideoFolder,
   getRecordingStatus,
@@ -17,9 +17,21 @@ export async function DELETE(
 ) {
   const { videoId } = await params;
   try {
-    const session = await getServerSession(authOptions);
+    const token = req.cookies.get('auth_token')?.value;
 
-    if (!session) {
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await verifyToken(token);
+
+    if (!payload) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await getUserById(payload.userId);
+
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -56,9 +68,21 @@ export async function POST(
   const { videoId } = await params;
 
   try {
-    const session = await getServerSession(authOptions);
+    const token = req.cookies.get('auth_token')?.value;
 
-    if (!session) {
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await verifyToken(token);
+
+    if (!payload) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await getUserById(payload.userId);
+
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

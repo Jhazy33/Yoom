@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useAuth, type User } from "@/components/auth-provider";
 import { Sidebar, HamburgerButton } from "@/components/sidebar";
+import { BackButton } from "@/components/back-button";
+import { HomeIconButton } from "@/components/home-icon-button";
+import { UserManagement } from "@/components/user-management";
 
 interface RecordingMetadata {
   videoId: string;
@@ -19,7 +22,7 @@ interface RecordingMetadata {
 }
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession();
+  const { user, loading: authLoading, logout } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -92,7 +95,7 @@ export default function SettingsPage() {
     loadStats();
   }, []);
 
-  if (status === "loading") {
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="text-center">
@@ -102,7 +105,7 @@ export default function SettingsPage() {
     );
   }
 
-  if (!session) {
+  if (!user) {
     router.push("/login");
     return null;
   }
@@ -153,7 +156,10 @@ export default function SettingsPage() {
 
       // Sign out after 10 seconds to give user time to copy the hash
       setTimeout(() => {
-        signOut({ callbackUrl: "/login" });
+        (async () => {
+          await logout();
+          router.push("/login");
+        })();
       }, 10000);
     } catch {
       setError("Failed to change password. Please try again.");
@@ -162,7 +168,8 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/login" });
+    await logout();
+    router.push("/login");
   };
 
   // Handle recording deletion
@@ -320,9 +327,14 @@ export default function SettingsPage() {
     <>
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="min-h-screen flex items-center justify-center bg-surface p-8">
-        {/* Header with hamburger menu */}
+        {/* Header with back button */}
         <div className="absolute top-4 left-4 z-30">
-          <HamburgerButton onClick={() => setSidebarOpen(true)} />
+          <BackButton />
+        </div>
+
+        {/* Hamburger menu on right */}
+        <div className="absolute top-4 right-4 z-30">
+          <HomeIconButton />
         </div>
 
         <div className="w-full max-w-md space-y-8">
@@ -550,6 +562,10 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <div id="users" className="bg-surface border border-border rounded-lg p-6">
+          <UserManagement currentUser={user!} />
+        </div>
+
         <div id="recordings" className="bg-surface border border-border rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">My Recordings</h2>
 
@@ -640,7 +656,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-foreground">Signed in as</h3>
-              <p className="text-sm text-muted">{session.user?.email}</p>
+              <p className="text-sm text-muted">{user?.email}</p>
             </div>
             <button
               onClick={handleSignOut}
@@ -649,12 +665,6 @@ export default function SettingsPage() {
               Sign Out
             </button>
           </div>
-        </div>
-
-        <div className="text-center">
-          <Link href="/" className="text-accent hover:underline text-sm">
-            ← Back to Home
-          </Link>
         </div>
       </div>
       </main>

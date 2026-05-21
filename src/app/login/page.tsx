@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useAuth } from "@/components/auth-provider";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,19 +16,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
-        username,
-        password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Invalid credentials");
-      } else if (result?.ok) {
-        window.location.href = "/";
-      }
+      await login(username, password);
+      window.location.href = "/";
     } catch (err) {
-      setError("Login failed. Please try again.");
+      setError(err instanceof Error ? err.message : "Invalid credentials");
     } finally {
       setLoading(false);
     }

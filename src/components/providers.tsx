@@ -1,9 +1,7 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
+import { AuthProvider } from "./auth-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // @ts-ignore - NextAuth v5 SessionProvider has type incompatibility with React 19
-  // This is a known issue and does not affect runtime functionality
-  return <SessionProvider>{children}</SessionProvider>;
+  return <AuthProvider>{children}</AuthProvider>;
 }

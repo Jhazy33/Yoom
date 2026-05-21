@@ -1,17 +1,18 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/components/auth-provider";
 import { useRouter } from "next/navigation";
 import { Recorder } from "@/components/recorder";
 import { Sidebar, HamburgerButton } from "@/components/sidebar";
+import { BackButton } from "@/components/back-button";
 import { useState } from "react";
 
 export default function RecorderPage() {
-  const { data: session, status } = useSession();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  if (status === "loading") {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="text-center">
@@ -21,7 +22,7 @@ export default function RecorderPage() {
     );
   }
 
-  if (!session) {
+  if (!user) {
     router.push("/login");
     return null;
   }
@@ -31,8 +32,13 @@ export default function RecorderPage() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="min-h-screen">
-        {/* Header with hamburger menu */}
+        {/* Header with back button */}
         <div className="absolute top-4 left-4 z-30">
+          <BackButton />
+        </div>
+
+        {/* Hamburger menu on right */}
+        <div className="absolute top-4 right-4 z-30">
           <HamburgerButton onClick={() => setSidebarOpen(true)} />
         </div>
 

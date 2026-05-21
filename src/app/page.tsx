@@ -1,18 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useAuth } from "@/components/auth-provider";
 import { Sidebar, HamburgerButton } from "@/components/sidebar";
 
 export default function HomePage() {
-  const { data: session, status } = useSession();
+  const { user, loading, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/login" });
+    await logout();
+    window.location.href = "/login";
   };
 
-  if (status === "loading") {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="text-center">
@@ -22,7 +23,7 @@ export default function HomePage() {
     );
   }
 
-  if (!session) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface">
         <div className="text-center">
