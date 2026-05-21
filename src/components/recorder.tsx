@@ -481,10 +481,7 @@ export function Recorder() {
     return (
       <>
         <main className="flex min-h-screen items-center justify-center p-8">
-          {/* Header with hamburger menu */}
-          <div className="absolute top-4 left-4 z-30">
-            <{/* Hamburger removed - navigation handled by page layout */} />
-          </div>
+          {/* Header with hamburger menu - removed, navigation handled by page layout */}
 
           <div className="w-full max-w-md space-y-6 text-center">
           <div className="rounded-full w-10 h-10 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
@@ -538,10 +535,7 @@ export function Recorder() {
     return (
       <>
         <main className="flex min-h-screen items-center justify-center p-8">
-          {/* Header with hamburger menu */}
-          <div className="absolute top-4 left-4 z-30">
-            <{/* Hamburger removed - navigation handled by page layout */} />
-          </div>
+          {/* Header with hamburger menu - removed, navigation handled by page layout */}
 
           <div className="w-full max-w-md space-y-5 text-center">
           <p className="text-xs font-medium text-muted-dim uppercase tracking-wider">Uploading</p>
@@ -561,10 +555,7 @@ export function Recorder() {
   return (
     <>
       <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
-        {/* Header with hamburger menu */}
-        <div className="absolute top-4 left-4 z-30">
-          <{/* Hamburger removed - navigation handled by page layout */} />
-        </div>
+        {/* Header with hamburger menu - removed, navigation handled by page layout */}
 
         {/* Canvas for screen+camera compositing */}
       {mode === "screen+camera" && (
