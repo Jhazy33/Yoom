@@ -26,16 +26,12 @@ export default async function WatchPage({ params }: WatchPageProps) {
   return (
     <main className="relative min-h-screen p-8">
       <WatchNavigation />
-      <div className="flex gap-8">
-        <div className="flex-1">
-          <WatchPageClient
-            videoUrl={videoUrl}
-            transcriptUrl={transcriptUrl}
-            shareUrl={shareUrl}
-            videoId={videoId}
-          />
-        </div>
-      </div>
+      <WatchPageClient
+        videoUrl={videoUrl}
+        transcriptUrl={transcriptUrl}
+        shareUrl={shareUrl}
+        videoId={videoId}
+      />
     </main>
   );
 }

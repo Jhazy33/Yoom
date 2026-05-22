@@ -32,8 +32,8 @@ export function WatchPageClient({ videoUrl, transcriptUrl, shareUrl, videoId }: 
   }, [transcriptUrl]);
 
   return (
-    <div className="flex gap-8">
-      <div className="flex-1">
+    <div className="space-y-8">
+      <div>
         <VideoPlayer
           src={videoUrl}
           transcriptUrl={transcriptUrl}
@@ -41,7 +41,7 @@ export function WatchPageClient({ videoUrl, transcriptUrl, shareUrl, videoId }: 
           videoId={videoId}
         />
       </div>
-      <div className="w-96">
+      <div>
         <VideoChat videoId={videoId} transcript={transcript} />
       </div>
     </div>
