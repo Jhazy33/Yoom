@@ -698,7 +698,7 @@ export default function SettingsPage() {
                           Download
                         </button>
                       )}
-                      {(recording.status === 'failed' || recording.status === 'pending') && (
+                      {(recording.status === 'failed' || recording.status === 'pending' || recording.status === 'uploading') && (
                         <button
                           onClick={() => handleRetryRecording(recording.videoId)}
                           disabled={retryingVideoId === recording.videoId}
