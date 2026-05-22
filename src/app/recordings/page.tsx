@@ -26,6 +26,8 @@ export default function RecordingsPage() {
   const [recordings, setRecordings] = useState<RecordingMetadata[]>([]);
   const [recordingsLoading, setRecordingsLoading] = useState(true);
   const [recordingsError, setRecordingsError] = useState("");
+  const [selectedRecordings, setSelectedRecordings] = useState<Set<string>>(new Set());
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
 
   const handleSignOut = async () => {
     await logout();
@@ -42,6 +44,39 @@ export default function RecordingsPage() {
     } catch (err) {
       console.error("Error deleting recording:", err);
       alert("Failed to delete recording. Please try again.");
+    }
+  };
+
+  const toggleSelection = (videoId: string) => {
+    const newSelection = new Set(selectedRecordings);
+    if (newSelection.has(videoId)) {
+      newSelection.delete(videoId);
+    } else {
+      newSelection.add(videoId);
+    }
+    setSelectedRecordings(newSelection);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedRecordings.size === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ${selectedRecordings.size} recording${selectedRecordings.size > 1 ? 's' : ''}?`)) {
+      return;
+    }
+
+    try {
+      const { deleteVideoFolder } = await import("@/lib/r2");
+
+      for (const videoId of selectedRecordings) {
+        await deleteVideoFolder(videoId);
+      }
+
+      setRecordings(recordings.filter(r => !selectedRecordings.has(r.videoId)));
+      setSelectedRecordings(new Set());
+      setIsDeleteMode(false);
+    } catch (err) {
+      alert("Failed to delete some recordings");
+      console.error("Error deleting recordings:", err);
     }
   };
 
@@ -102,13 +137,46 @@ export default function RecordingsPage() {
         </div>
 
         <div className="w-full max-w-6xl space-y-6">
-          <div className="text-center space-y-4">
-            <h1 className="text-4xl font-bold text-foreground">
-              My Recordings
-            </h1>
-            <p className="text-muted">
-              Manage your screen recordings
-            </p>
+          <div className="flex items-center justify-between">
+            <div className="text-center space-y-4">
+              <h1 className="text-4xl font-bold text-foreground">
+                My Recordings
+              </h1>
+              <p className="text-muted">
+                Manage your screen recordings
+              </p>
+            </div>
+            {recordings.length > 0 && (
+              <div className="flex items-center gap-2">
+                {isDeleteMode ? (
+                  <>
+                    <button
+                      onClick={handleBulkDelete}
+                      disabled={selectedRecordings.size === 0}
+                      className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
+                    >
+                      Delete Selected ({selectedRecordings.size})
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsDeleteMode(false);
+                        setSelectedRecordings(new Set());
+                      }}
+                      className="px-3 py-1.5 bg-surface border border-border rounded hover:bg-surface-hover transition-colors text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setIsDeleteMode(true)}
+                    className="px-3 py-1.5 bg-surface border border-border rounded hover:bg-surface-hover transition-colors text-xs"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {recordingsLoading ? (
@@ -139,7 +207,23 @@ export default function RecordingsPage() {
                 <table className="w-full">
                   <thead className="bg-surface-hover">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                      {isDeleteMode && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
+                          <input
+                            type="checkbox"
+                            checked={selectedRecordings.size === recordings.length && recordings.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRecordings(new Set(recordings.map(r => r.videoId)));
+                              } else {
+                                setSelectedRecordings(new Set());
+                              }
+                            }}
+                            className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+                          />
+                        </th>
+                      )}
+                      <th className={`px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider ${!isDeleteMode ? '' : 'pl-2'}`}>
                         Title
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-muted uppercase tracking-wider">
@@ -158,8 +242,18 @@ export default function RecordingsPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {recordings.map((recording) => (
-                      <tr key={recording.videoId} className="hover:bg-surface-hover">
-                        <td className="px-6 py-4">
+                      <tr key={recording.videoId} className={`hover:bg-surface-hover ${isDeleteMode && selectedRecordings.has(recording.videoId) ? 'bg-accent/5' : ''}`}>
+                        {isDeleteMode && (
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedRecordings.has(recording.videoId)}
+                              onChange={() => toggleSelection(recording.videoId)}
+                              className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+                            />
+                          </td>
+                        )}
+                        <td className={`px-6 py-4 ${!isDeleteMode ? '' : 'pl-2'}`}>
                           <div className="text-sm font-medium text-foreground">
                             {recording.title}
                           </div>
@@ -198,22 +292,24 @@ export default function RecordingsPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            {recording.status === 'completed' && (
-                              <a
-                                href={`/watch/${recording.videoId}`}
-                                className="px-3 py-1 text-sm bg-accent text-white rounded hover:bg-accent-hover"
+                          {!isDeleteMode && (
+                            <div className="flex justify-end gap-2">
+                              {recording.status === 'completed' && (
+                                <a
+                                  href={`/watch/${recording.videoId}`}
+                                  className="px-3 py-1 text-sm bg-accent text-white rounded hover:bg-accent-hover"
+                                >
+                                  Watch
+                                </a>
+                              )}
+                              <button
+                                onClick={() => handleDeleteRecording(recording.videoId)}
+                                className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
                               >
-                                Watch
-                              </a>
-                            )}
-                            <button
-                              onClick={() => handleDeleteRecording(recording.videoId)}
-                              className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                                Delete
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
