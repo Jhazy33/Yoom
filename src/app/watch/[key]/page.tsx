@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import dynamic from "next/dynamic";
 import { videoExists, getPublicVideoUrl, getPublicTranscriptUrl } from "@/lib/r2";
 import { WatchNavigation } from "@/components/watch-navigation";
+import { WatchPageClient } from "./watch-page-client";
 
 interface WatchPageProps {
   params: Promise<{ key: string }>;
@@ -22,11 +22,6 @@ export default async function WatchPage({ params }: WatchPageProps) {
   const transcriptUrl = getPublicTranscriptUrl(videoId);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const shareUrl = `${baseUrl}/watch/${key}`;
-
-  // Client component wrapper to handle state
-  const WatchPageClient = dynamic(() => import('./watch-page-client'), {
-    ssr: false,
-  });
 
   return (
     <main className="relative min-h-screen p-8">
