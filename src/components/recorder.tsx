@@ -382,17 +382,23 @@ export function Recorder() {
       // Step 2: Update status to uploading
       await updateRecordingStatus(videoId, 'uploading');
 
-      // Step 3: Upload to R2 via server proxy (bypasses CORS)
-      console.log(`[Yoom] Uploading via server proxy (${blob.size} bytes)...`);
+      // Step 3: Upload to R2 using presigned URL (avoids 413 Payload Too Large errors)
+      console.log(`[Yoom] Uploading to R2 (${(blob.size / 1024 / 1024).toFixed(2)}MB)...`);
 
-      // Use XMLHttpRequest for progress tracking with FormData
+      // Get presigned URL from server
+      const uploadRes = await fetch('/api/upload', { method: 'POST' });
+      if (!uploadRes.ok) {
+        throw new Error(`Failed to get upload URL: ${uploadRes.status}`);
+      }
+
+      const { url: presignedUrl, key, videoId: apiVideoId } = await uploadRes.json();
+      console.log(`[Yoom] Presigned URL obtained for ${apiVideoId}`);
+
+      // Upload directly to R2 using presigned URL
       const uploadKey = await new Promise<string>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/api/upload-proxy");
-
-        const formData = new FormData();
-        formData.append("file", blob, "video.webm");
-        formData.append("videoId", videoId);
+        xhr.open("PUT", presignedUrl);
+        xhr.setRequestHeader('Content-Type', 'video/webm');
 
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
@@ -401,22 +407,15 @@ export function Recorder() {
         };
 
         xhr.onload = async () => {
-          console.log(`[Yoom] Upload proxy status: ${xhr.status}`);
+          console.log(`[Yoom] Direct upload status: ${xhr.status}`);
 
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
-              const data = JSON.parse(xhr.responseText);
-              console.log(`[Yoom] Upload successful, key: ${data.key}`);
-
-              // Verify upload actually wrote to R2 by checking if we got a valid key back
-              if (!data.key || !data.videoId) {
-                reject(new Error("Upload succeeded but no R2 key returned"));
-                return;
-              }
+              console.log(`[Yoom] Upload successful, key: ${key}`);
 
               // Step 4: Save metadata to R2 via upload-complete endpoint
-              console.log(`[Yoom] Saving metadata for ${data.videoId}...`);
-              const metadataResponse = await fetch(`/api/upload-complete/${data.videoId}`, {
+              console.log(`[Yoom] Saving metadata for ${apiVideoId}...`);
+              const metadataResponse = await fetch(`/api/upload-complete/${apiVideoId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -431,7 +430,7 @@ export function Recorder() {
               }
 
               console.log(`[Yoom] Metadata saved successfully`);
-              resolve(data.key);
+              resolve(key);
             } catch (e) {
               reject(new Error(`Upload processing failed: ${e instanceof Error ? e.message : 'Unknown error'}`));
             }
@@ -441,8 +440,8 @@ export function Recorder() {
         };
 
         xhr.onerror = () => {
-          console.error('[Yoom] Network error - check browser console for details');
-          reject(new Error("Network error during server upload. Please check your internet connection and try again."));
+          console.error('[Yoom] Network error during direct upload');
+          reject(new Error("Network error during upload. Please check your internet connection."));
         };
 
         xhr.ontimeout = () => {
@@ -450,10 +449,9 @@ export function Recorder() {
           reject(new Error("Upload timed out. Your recording has been saved and will retry automatically."));
         };
 
-        xhr.timeout = 300000; // 5 minute timeout for server upload
-
-        console.log(`[Yoom] Starting server upload...`);
-        xhr.send(formData);
+        xhr.timeout = 300000; // 5 minute timeout
+        console.log(`[Yoom] Starting direct upload to R2...`);
+        xhr.send(blob);
       });
 
       // Step 5: Update status to completed
