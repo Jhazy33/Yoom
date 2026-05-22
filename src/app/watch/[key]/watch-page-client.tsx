@@ -32,18 +32,23 @@ export function WatchPageClient({ videoUrl, transcriptUrl, shareUrl, videoId }: 
   }, [transcriptUrl]);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <VideoPlayer
-          src={videoUrl}
-          transcriptUrl={transcriptUrl}
-          shareUrl={shareUrl}
-          videoId={videoId}
-        />
+    <>
+      <div className="absolute top-4 right-4 z-10">
+        <HomeIconButton />
       </div>
-      <div>
-        <VideoChat videoId={videoId} transcript={transcript} />
+      <div className="flex gap-8 mt-16">
+        <div className="flex-1">
+          <VideoPlayer
+            src={videoUrl}
+            transcriptUrl={transcriptUrl}
+            shareUrl={shareUrl}
+            videoId={videoId}
+          />
+        </div>
+        <div className="w-96">
+          <VideoChat videoId={videoId} transcript={transcript} />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
