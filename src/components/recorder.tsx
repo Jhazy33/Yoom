@@ -262,7 +262,7 @@ export function Recorder() {
 
       // Validate stream has active tracks
       const tracks = recordStream.getTracks();
-      const activeTracks = tracks.filter(t => t.readyState === 'live' || t.readyState === 'live');
+      const activeTracks = tracks.filter(t => t.readyState === 'live');
 
       if (activeTracks.length === 0) {
         throw new Error('No active media tracks found. Please check your device permissions.');
