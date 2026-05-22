@@ -35,6 +35,13 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Upload Proxy] Success: ${videoKey} (${buffer.length} bytes)`);
 
+    // Trigger transcription in background
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ videoId }),
+    }).catch(err => console.error('[Upload Proxy] Transcription trigger failed:', err));
+
     return NextResponse.json({
       success: true,
       key: videoKey,

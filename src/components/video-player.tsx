@@ -7,9 +7,10 @@ interface VideoPlayerProps {
   src: string;
   shareUrl: string;
   transcriptUrl?: string;
+  videoId: string;
 }
 
-export function VideoPlayer({ src, shareUrl, transcriptUrl }: VideoPlayerProps) {
+export function VideoPlayer({ src, shareUrl, transcriptUrl, videoId }: VideoPlayerProps) {
   const [copied, setCopied] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
@@ -37,6 +38,14 @@ export function VideoPlayer({ src, shareUrl, transcriptUrl }: VideoPlayerProps) 
   useEffect(() => {
     loadTranscript();
   }, [transcriptUrl]);
+
+  // Expose transcript to parent via ref or callback if needed
+  useEffect(() => {
+    // This will be used to pass transcript to VideoChat
+    if (transcript && typeof window !== 'undefined') {
+      (window as any).videoTranscript = transcript;
+    }
+  }, [transcript]);
 
   async function copyToClipboard() {
     try {
