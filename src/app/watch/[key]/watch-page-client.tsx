@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { VideoPlayer } from "@/components/video-player";
 import { VideoChat } from "@/components/video-chat";
+import { HomeIconButton } from "@/components/home-icon-button";
 
 interface WatchPageClientProps {
   videoUrl: string;
