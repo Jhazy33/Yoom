@@ -43,11 +43,40 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('[Upload Proxy] Error:', error);
+    console.error('[Upload Proxy] Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      name: error instanceof Error ? error.name : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+
+    let errorMessage = 'Upload failed';
+    let errorDetails = 'Unknown error';
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorDetails = error.name;
+
+      // Provide actionable error messages
+      if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed')) {
+        errorMessage = 'Cannot connect to R2 storage. Please check your internet connection.';
+        errorDetails = 'Network connection failed';
+      } else if (error.message.includes('Access Denied') || error.message.includes('403')) {
+        errorMessage = 'Permission denied. Check R2 credentials in Vercel environment variables.';
+        errorDetails = 'Authentication failed';
+      } else if (error.message.includes('NoSuchBucket')) {
+        errorMessage = 'R2 bucket not found. Check R2_BUCKET_NAME environment variable.';
+        errorDetails = 'Bucket configuration error';
+      } else if (error.message.includes('credentials')) {
+        errorMessage = 'R2 credentials invalid. Please update environment variables in Vercel.';
+        errorDetails = 'Credentials error';
+      }
+    }
 
     return NextResponse.json(
       {
-        error: "Upload failed",
-        details: error instanceof Error ? error.message : "Unknown error"
+        error: errorMessage,
+        details: errorDetails,
+        originalMessage: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }
     );
