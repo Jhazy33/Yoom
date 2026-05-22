@@ -3,7 +3,8 @@ import type { NextRequest } from 'next/server';
 import { verifyToken } from './lib/jwt';
 
 export async function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth_token')?.value;
+  // Check both auth_token (legacy) and session-token (current)
+  const token = request.cookies.get('auth_token')?.value || request.cookies.get('session-token')?.value;
 
   const protectedPaths = ['/api/upload', '/recorder'];
   const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path));
