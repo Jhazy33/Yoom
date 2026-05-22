@@ -260,6 +260,16 @@ export function Recorder() {
 
       const videoBitsPerSecond = mode === "camera" ? 5_000_000 : 10_000_000;
 
+      // Validate stream has active tracks
+      const tracks = recordStream.getTracks();
+      const activeTracks = tracks.filter(t => t.readyState === 'live' || t.readyState === 'live');
+
+      if (activeTracks.length === 0) {
+        throw new Error('No active media tracks found. Please check your device permissions.');
+      }
+
+      console.log(`[Yoom] Stream validated: ${activeTracks.length} active tracks (${activeTracks.map(t => t.kind).join(', ')})`);
+
       const recorderOptions: MediaRecorderOptions = {
         ...(mimeType ? { mimeType } : {}),
         videoBitsPerSecond,
@@ -267,22 +277,50 @@ export function Recorder() {
       const mediaRecorder = new MediaRecorder(recordStream, recorderOptions);
 
       mediaRecorder.ondataavailable = (e) => {
-        console.log(`[Yoom] chunk received: ${e.data.size} bytes`);
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        const size = e.data.size;
+        console.log(`[Yoom] chunk received: ${size} bytes`);
+        if (size > 0) {
+          chunksRef.current.push(e.data);
+        } else {
+          console.warn('[Yoom] Empty chunk received');
+        }
       };
 
       mediaRecorder.onerror = (e) => {
         console.error("[Yoom] MediaRecorder error:", e);
+        console.error("[Yoom] Error details:", {
+          error: e.error,
+          message: e.message
+        });
+        setError(`Recording error: ${e.message || 'Unknown error'}`);
       };
 
       mediaRecorder.onstop = () => {
-        console.log(`[Yoom] recording stopped, ${chunksRef.current.length} chunks, total ${chunksRef.current.reduce((a, b) => a + b.size, 0)} bytes`);
-        handleRecordingComplete();
+        const totalBytes = chunksRef.current.reduce((a, b) => a + b.size, 0);
+        console.log(`[Yoom] recording stopped, ${chunksRef.current.length} chunks, total ${totalBytes} bytes`);
+
+        // Wait for final chunk if needed (sometimes onstop fires before last ondataavailable)
+        if (chunksRef.current.length === 0) {
+          console.warn('[Yoom] No chunks received yet, waiting 100ms for final chunk...');
+          setTimeout(() => {
+            if (chunksRef.current.length > 0) {
+              console.log(`[Yoom] Final chunk received, proceeding with upload`);
+            }
+            handleRecordingComplete();
+          }, 100);
+        } else {
+          handleRecordingComplete();
+        }
       };
 
       console.log(`[Yoom] starting MediaRecorder with mimeType: "${mediaRecorder.mimeType}", stream tracks:`, recordStream.getTracks().map(t => `${t.kind}:${t.readyState}`));
       mediaRecorder.start(250);
       mediaRecorderRef.current = mediaRecorder;
+
+      // Expose state for debugging
+      (window as any).mediaRecorderState = mediaRecorder.state;
+      (window as any).mediaRecorderMime = mediaRecorder.mimeType;
+
       setState("recording");
 
       setElapsed(0);
@@ -291,10 +329,16 @@ export function Recorder() {
       }, 1000);
     } catch (err: unknown) {
       stopAllStreams();
+      console.error('[Yoom] Failed to start recording:', err);
+
       if (err instanceof Error && err.name === "NotAllowedError") {
         setError("Permission denied. Please allow screen/camera access.");
+      } else if (err instanceof Error && err.message.includes('Requested device not found')) {
+        setError("No camera/microphone found. Please connect a device and try again.");
+      } else if (err instanceof Error && err.message.includes('Could not start video source')) {
+        setError("Could not start camera. Please check if another app is using your camera.");
       } else {
-        setError("Failed to start recording. Check your device permissions.");
+        setError(`Failed to start recording: ${err instanceof Error ? err.message : 'Unknown error'}`);
       }
     }
   }
@@ -318,14 +362,15 @@ export function Recorder() {
       return;
     }
 
-    // Generate unique video ID
+    // Generate unique video ID and title
     const videoId = `recording-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const title = `Recording ${new Date().toLocaleString()}`;
 
     try {
       // Step 1: Save to IndexedDB first (data persistence)
       console.log(`[Yoom] Saving recording ${videoId} to IndexedDB...`);
       await saveRecording(videoId, blob, {
-        title: `Recording ${new Date().toLocaleString()}`,
+        title: title,
         createdAt: new Date().toISOString(),
         size: blob.size,
         duration: elapsed,
@@ -362,9 +407,33 @@ export function Recorder() {
             try {
               const data = JSON.parse(xhr.responseText);
               console.log(`[Yoom] Upload successful, key: ${data.key}`);
+
+              // Verify upload actually wrote to R2 by checking if we got a valid key back
+              if (!data.key || !data.videoId) {
+                reject(new Error("Upload succeeded but no R2 key returned"));
+                return;
+              }
+
+              // Step 4: Save metadata to R2 via upload-complete endpoint
+              console.log(`[Yoom] Saving metadata for ${data.videoId}...`);
+              const metadataResponse = await fetch(`/api/upload-complete/${data.videoId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: title || `Recording ${new Date().toLocaleString()}`,
+                  size: blob.size,
+                  type: blob.type
+                }),
+              });
+
+              if (!metadataResponse.ok) {
+                throw new Error(`Failed to save metadata: ${metadataResponse.statusText}`);
+              }
+
+              console.log(`[Yoom] Metadata saved successfully`);
               resolve(data.key);
             } catch (e) {
-              reject(new Error("Invalid response from upload proxy"));
+              reject(new Error(`Upload processing failed: ${e instanceof Error ? e.message : 'Unknown error'}`));
             }
           } else {
             reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
@@ -372,11 +441,13 @@ export function Recorder() {
         };
 
         xhr.onerror = () => {
-          reject(new Error("Network error during server upload"));
+          console.error('[Yoom] Network error - check browser console for details');
+          reject(new Error("Network error during server upload. Please check your internet connection and try again."));
         };
 
         xhr.ontimeout = () => {
-          reject(new Error("Upload timed out"));
+          console.error('[Yoom] Upload timeout after 5 minutes');
+          reject(new Error("Upload timed out. Your recording has been saved and will retry automatically."));
         };
 
         xhr.timeout = 300000; // 5 minute timeout for server upload
@@ -385,7 +456,7 @@ export function Recorder() {
         xhr.send(formData);
       });
 
-      // Step 4: Update status to completed
+      // Step 5: Update status to completed
       await updateRecordingStatus(videoId, 'completed', {
         r2Key: uploadKey,
         uploadAttempts: 1,
@@ -480,7 +551,7 @@ export function Recorder() {
   if (state === "done") {
     return (
       <>
-        <main className="flex min-h-screen items-center justify-center p-8">
+        <main data-testid="recording-done" className="flex min-h-screen items-center justify-center p-8">
           {/* Header with hamburger menu - removed, navigation handled by page layout */}
 
           <div className="w-full max-w-md space-y-6 text-center">
@@ -640,7 +711,7 @@ export function Recorder() {
 
         {/* Error */}
         {error && (
-          <p className="text-sm text-red-400/90 text-center">{error}</p>
+          <p data-testid="recording-error" className="text-sm text-red-400/90 text-center">{error}</p>
         )}
 
         {/* Controls */}

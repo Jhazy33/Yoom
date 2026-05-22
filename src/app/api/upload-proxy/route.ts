@@ -42,11 +42,18 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[Upload Proxy] Error:', error);
-    console.error('[Upload Proxy] Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      name: error instanceof Error ? error.name : 'Unknown',
-      stack: error instanceof Error ? error.stack : undefined,
+    const err = error as Error & { $metadata?: unknown };
+    console.error('[Upload Proxy] R2 Upload Error:', {
+      message: err instanceof Error ? err.message : 'Unknown error',
+      name: err instanceof Error ? err.name : 'Unknown',
+      $metadata: "$metadata" in err ? err.$metadata : 'No metadata',
+      stack: err instanceof Error ? err.stack : undefined,
+      env: {
+        bucket: process.env.R2_BUCKET_NAME ? 'set' : 'missing',
+        accountId: process.env.R2_ACCOUNT_ID ? 'set' : 'missing',
+        accessKey: process.env.R2_ACCESS_KEY_ID ? 'set' : 'missing',
+        secretKey: process.env.R2_SECRET_ACCESS_KEY ? 'set' : 'missing',
+      }
     });
 
     let errorMessage = 'Upload failed';

@@ -10,6 +10,21 @@ export const r2 = new S3Client({
   },
 });
 
+export async function validateR2Connection(): Promise<boolean> {
+  try {
+    const { HeadBucketCommand } = await import("@aws-sdk/client-s3");
+    const command = new HeadBucketCommand({
+      Bucket: process.env.R2_BUCKET_NAME!,
+    });
+    await r2.send(command);
+    console.log('[R2] Connection validated successfully');
+    return true;
+  } catch (error) {
+    console.error('[R2] Connection validation failed:', error);
+    return false;
+  }
+}
+
 export interface VideoMetadata {
   title: string;
   createdAt: string;
