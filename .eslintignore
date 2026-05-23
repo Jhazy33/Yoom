@@ -1,0 +1,8 @@
+# Test and debug scripts in root directory
+*.js
+!jest.config.js
+
+# Test files already handled by Jest config
+__tests__/
+*.test.ts
+*.test.tsx

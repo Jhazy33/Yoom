@@ -18,18 +18,10 @@ async function ensureUsersFile() {
   try {
     await fs.access(USERS_FILE);
   } catch {
-    const initialUsers = {
-      users: [{
-        id: '1',
-        username: 'jhazy33',
-        email: 'admin@yoom.com',
-        passwordHash: await bcrypt.hash('Yoom2026!', 12),
-        role: 'admin' as const,
-        allowedFolders: ['*'],
-        createdAt: new Date().toISOString()
-      }]
-    };
-    await fs.writeFile(USERS_FILE, JSON.stringify(initialUsers, null, 2));
+    throw new Error(
+      'users.json not found. Please create initial admin user via API or setup script. ' +
+      'Do NOT use hardcoded fallback credentials in production.'
+    );
   }
 }
 

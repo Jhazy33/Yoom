@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       : "No transcript available for this video.\n\n";
 
     // Build conversation history
-    const messages = history?.map((msg: any) => ({
+    const messages = history?.map((msg: { role: string; content: string }) => ({
       role: msg.role,
       content: msg.content,
     })) || [];
